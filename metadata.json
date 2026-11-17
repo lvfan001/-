@@ -1,0 +1,6 @@
+{
+  "name": "Chem9701 Studio · A-Level 化学真题测验",
+  "description": "A-Level Chemistry (CAIE 9701) 2021–2026 past paper downloader, 30-chapter & multi-chapter module quiz trainer, error-frequency analytics, targeted revision planner, and timed mock exam simulator.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

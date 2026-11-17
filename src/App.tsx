@@ -1,0 +1,681 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Award,
+  BarChart3,
+  BookOpen,
+  DownloadCloud,
+  FlaskConical,
+  KeyRound,
+  LayoutDashboard,
+  Menu,
+  Play,
+  RotateCcw,
+  X,
+} from 'lucide-react';
+import type {
+  ActiveQuizSession,
+  AppView,
+  AuthUser,
+  DownloadedPaper,
+  MockExamResult,
+  Question,
+  QuestionStat,
+  RevisionPlan,
+  RevisionTask,
+  SessionSnapshot,
+} from './types/chemistry.ts';
+import { BUILTIN_QUESTIONS, normalizeQuestionClassification } from './data/questionBank.ts';
+import { getChapterById, getModuleById, resolveModuleForChapters } from './data/syllabus.ts';
+import {
+  computeChapterErrorSummaries,
+  computeModuleErrorSummaries,
+  getHighFrequencyMistakeQuestions,
+  recordQuestionAttempt,
+} from './utils/analytics.ts';
+import { OverviewView } from './components/OverviewView.tsx';
+import { PaperDownloaderView } from './components/PaperDownloaderView.tsx';
+import { ChapterModuleView } from './components/ChapterModuleView.tsx';
+import { MockExamSetupView } from './components/MockExamSetupView.tsx';
+import { AnalyticsAndPlanView } from './components/AnalyticsAndPlanView.tsx';
+import { QuizWorkspace } from './components/QuizWorkspace.tsx';
+import { AccountResetModal, type SyncProgressData } from './components/AccountResetModal.tsx';
+
+const STORAGE_KEYS = {
+  customQuestions: 'chem9701_custom_questions_v1',
+  downloadedPapers: 'chem9701_downloaded_papers_v1',
+  statsMap: 'chem9701_question_stats_v1',
+  mockHistory: 'chem9701_mock_history_v1',
+  revisionPlan: 'chem9701_revision_plan_v1',
+  targetExamDate: 'chem9701_target_date_v1',
+  authToken: 'chem9701_auth_token_v1',
+  sessionSnapshot: 'chem9701_latest_snapshot_v1',
+};
+
+function loadJsonStorage<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function deepClone<T>(val: T): T {
+  return JSON.parse(JSON.stringify(val)) as T;
+}
+
+export default function App() {
+  const [activeView, setActiveView] = useState<AppView>('overview');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const [customQuestions, setCustomQuestions] = useState<Question[]>(() =>
+    loadJsonStorage<Question[]>(STORAGE_KEYS.customQuestions, [])
+  );
+  const [downloadedPapers, setDownloadedPapers] = useState<DownloadedPaper[]>(() =>
+    loadJsonStorage<DownloadedPaper[]>(STORAGE_KEYS.downloadedPapers, [])
+  );
+  const [statsMap, setStatsMap] = useState<Record<string, QuestionStat>>(() =>
+    loadJsonStorage<Record<string, QuestionStat>>(STORAGE_KEYS.statsMap, {})
+  );
+  const [mockHistory, setMockHistory] = useState<MockExamResult[]>(() =>
+    loadJsonStorage<MockExamResult[]>(STORAGE_KEYS.mockHistory, [])
+  );
+  const [revisionPlan, setRevisionPlan] = useState<RevisionPlan | null>(() =>
+    loadJsonStorage<RevisionPlan | null>(STORAGE_KEYS.revisionPlan, null)
+  );
+  const [targetExamDate, setTargetExamDate] = useState<string>(() =>
+    loadJsonStorage<string>(STORAGE_KEYS.targetExamDate, '2027-05-15')
+  );
+
+  const [authToken, setAuthToken] = useState<string | null>(() =>
+    localStorage.getItem(STORAGE_KEYS.authToken)
+  );
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [sessionSnapshot, setSessionSnapshot] = useState<SessionSnapshot | null>(() =>
+    loadJsonStorage<SessionSnapshot | null>(STORAGE_KEYS.sessionSnapshot, null)
+  );
+
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [accountModalTab, setAccountModalTab] = useState<'account' | 'reset'>('reset');
+  const [activeQuiz, setActiveQuiz] = useState<ActiveQuizSession | null>(null);
+  const skipNextSyncRef = useRef(false);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.customQuestions, JSON.stringify(customQuestions));
+  }, [customQuestions]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.downloadedPapers, JSON.stringify(downloadedPapers));
+  }, [downloadedPapers]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.statsMap, JSON.stringify(statsMap));
+  }, [statsMap]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.mockHistory, JSON.stringify(mockHistory));
+  }, [mockHistory]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.revisionPlan, JSON.stringify(revisionPlan));
+  }, [revisionPlan]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.targetExamDate, JSON.stringify(targetExamDate));
+  }, [targetExamDate]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.sessionSnapshot, JSON.stringify(sessionSnapshot));
+  }, [sessionSnapshot]);
+
+  // Hydrate authenticated user & progress on initial mount
+  useEffect(() => {
+    if (!authToken) {
+      setCurrentUser(null);
+      return;
+    }
+    let cancelled = false;
+    fetch('/api/auth/me', {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('SESSION_EXPIRED');
+        return (await res.json()) as { user: AuthUser; progress: SyncProgressData };
+      })
+      .then((data) => {
+        if (cancelled) return;
+        skipNextSyncRef.current = true;
+        setCurrentUser(data.user);
+        setStatsMap(data.progress.statsMap ?? {});
+        setMockHistory(data.progress.mockHistory ?? []);
+        setRevisionPlan(data.progress.revisionPlan ?? null);
+        if (data.progress.targetExamDate) {
+          setTargetExamDate(data.progress.targetExamDate);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        localStorage.removeItem(STORAGE_KEYS.authToken);
+        setAuthToken(null);
+        setCurrentUser(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authToken]);
+
+  // Debounced server progress sync when signed in
+  useEffect(() => {
+    if (!authToken || !currentUser) return;
+    if (skipNextSyncRef.current) {
+      skipNextSyncRef.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      fetch('/api/user/progress', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          statsMap,
+          mockHistory,
+          revisionPlan,
+          targetExamDate,
+        }),
+      }).catch(() => {});
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [authToken, currentUser, statsMap, mockHistory, revisionPlan, targetExamDate]);
+
+  const allQuestions = useMemo(
+    () => [...customQuestions, ...BUILTIN_QUESTIONS],
+    [customQuestions]
+  );
+
+  const chapterSummaries = useMemo(
+    () => computeChapterErrorSummaries(allQuestions, statsMap),
+    [allQuestions, statsMap]
+  );
+
+  const moduleSummaries = useMemo(
+    () => computeModuleErrorSummaries(allQuestions, statsMap),
+    [allQuestions, statsMap]
+  );
+
+  function handlePaperIngested(paper: DownloadedPaper, newQuestions: Question[]) {
+    setDownloadedPapers((prev) => [
+      paper,
+      ...prev.filter((p) => p.paperCode !== paper.paperCode),
+    ]);
+    if (newQuestions.length > 0) {
+      const normalized = newQuestions.map(normalizeQuestionClassification);
+      setCustomQuestions((prev) => [
+        ...normalized,
+        ...prev.filter((q) => q.paperCode !== paper.paperCode),
+      ]);
+    }
+  }
+
+  function handleSaveClippedQuestion(question: Question) {
+    const normalized = normalizeQuestionClassification(question);
+    setCustomQuestions((prev) => [normalized, ...prev.filter((q) => q.id !== normalized.id)]);
+  }
+
+  function startQuizSession(sessionConfig: ActiveQuizSession) {
+    setSessionSnapshot({
+      sessionId: sessionConfig.id,
+      sessionTitle: sessionConfig.title,
+      startedAt: new Date().toISOString(),
+      recordedAttemptsCount: 0,
+      preStatsMap: deepClone(statsMap),
+      preMockHistory: deepClone(mockHistory),
+    });
+    setActiveQuiz(sessionConfig);
+  }
+
+  function handleRecordAttempt(questionId: string, isCorrect: boolean, userAnswer: string) {
+    setStatsMap((prev) => recordQuestionAttempt(prev, questionId, isCorrect, userAnswer));
+    setSessionSnapshot((prev) =>
+      prev ? { ...prev, recordedAttemptsCount: prev.recordedAttemptsCount + 1 } : prev
+    );
+  }
+
+  function handleMockCompleted(result: MockExamResult) {
+    setMockHistory((prev) => [result, ...prev]);
+  }
+
+  function handleRollbackLatestSession() {
+    if (!sessionSnapshot) return;
+    setStatsMap(deepClone(sessionSnapshot.preStatsMap));
+    setMockHistory(deepClone(sessionSnapshot.preMockHistory));
+    setSessionSnapshot((prev) => (prev ? { ...prev, recordedAttemptsCount: 0 } : null));
+  }
+
+  function handleStartChapterQuiz(chapterId: number) {
+    const ch = getChapterById(chapterId);
+    // Strict textbook single-chapter isolation: ONLY questions solvable solely by this chapter
+    const single = allQuestions.filter(
+      (q) => q.chapters.length === 1 && q.chapters[0] === chapterId
+    );
+
+    startQuizSession({
+      id: `quiz-ch-${chapterId}-${Date.now()}`,
+      title: `${ch?.code ?? `Ch ${chapterId}`} · ${ch?.titleZh ?? ''}`,
+      subtitle: `${ch?.titleEn ?? ''} · 单章可解专项真题（严格按教材章节隔离）`,
+      mode: 'practice',
+      questions: single,
+    });
+  }
+
+  function handleStartModuleQuiz(moduleId: string) {
+    const mod = getModuleById(moduleId);
+    const list = allQuestions.filter(
+      (q) => q.chapters.length >= 2 && q.moduleId === moduleId
+    );
+    startQuizSession({
+      id: `quiz-mod-${moduleId}-${Date.now()}`,
+      title: `${mod?.code ?? ''} · ${mod?.titleZh ?? ''}`,
+      subtitle: `${mod?.titleEn ?? ''} · 跨章模块练习 (≥2 章节)`,
+      mode: 'practice',
+      questions: list,
+    });
+  }
+
+  function handleStartMistakesQuiz() {
+    const mistakeEntries = getHighFrequencyMistakeQuestions(allQuestions, statsMap);
+    const list = mistakeEntries.map((m) => m.question);
+    startQuizSession({
+      id: `quiz-mistakes-${Date.now()}`,
+      title: '高频错题靶向重练',
+      subtitle: `按错题次数从高到低排序 · 共 ${list.length} 题`,
+      mode: 'practice',
+      questions: list,
+    });
+  }
+
+  function handleStartQuickMock() {
+    const pool = [...allQuestions];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const chosen = pool.slice(0, Math.min(10, pool.length));
+    const durationSeconds = chosen.reduce(
+      (acc, q) => acc + (q.type === 'mcq' ? 110 : q.marks * 95),
+      0
+    );
+    startQuizSession({
+      id: `mock-quick-${Date.now()}`,
+      title: '全纲诊断模拟考 (2021–2026)',
+      subtitle: '限时模拟测评 · 交卷自动生成 CAIE 等级与错题分析',
+      mode: 'mock',
+      paperModeLabel: 'Full Diagnostic Mock',
+      questions: chosen,
+      durationSeconds,
+    });
+  }
+
+  function handleStartTaskQuiz(task: RevisionTask) {
+    if (task.focusType === 'mock') {
+      handleStartQuickMock();
+      return;
+    }
+    if (task.focusType === 'mistakes') {
+      const mistakes = getHighFrequencyMistakeQuestions(allQuestions, statsMap);
+      if (mistakes.length > 0) {
+        handleStartMistakesQuiz();
+        return;
+      }
+    }
+    if (task.focusType === 'module' && task.targetModuleId) {
+      handleStartModuleQuiz(task.targetModuleId);
+      return;
+    }
+    if (task.targetChapterIds.length === 1) {
+      const single = allQuestions.filter(
+        (q) => q.chapters.length === 1 && q.chapters[0] === task.targetChapterIds[0]
+      );
+      if (single.length > 0) {
+        startQuizSession({
+          id: `quiz-task-${task.id}-${Date.now()}`,
+          title: task.titleZh,
+          subtitle: `Day ${task.dayIndex} 复习任务 · ${task.estimatedMinutes} 分钟`,
+          mode: 'practice',
+          questions: single,
+        });
+        return;
+      }
+    }
+    if (task.targetChapterIds.length >= 2) {
+      const modId = resolveModuleForChapters(task.targetChapterIds);
+      const list = allQuestions.filter(
+        (q) =>
+          q.chapters.length >= 2 &&
+          (modId ? q.moduleId === modId : q.chapters.some((c) => task.targetChapterIds.includes(c)))
+      );
+      if (list.length > 0) {
+        startQuizSession({
+          id: `quiz-task-${task.id}-${Date.now()}`,
+          title: task.titleZh,
+          subtitle: `Day ${task.dayIndex} 跨章复习任务 · ${task.estimatedMinutes} 分钟`,
+          mode: 'practice',
+          questions: list,
+        });
+        return;
+      }
+    }
+    handleStartQuickMock();
+  }
+
+  function handleToggleRevisionTask(taskId: string) {
+    setRevisionPlan((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        tasks: prev.tasks.map((t) =>
+          t.id === taskId ? { ...t, completed: !t.completed } : t
+        ),
+      };
+    });
+  }
+
+  const navItems: Array<{ id: AppView; label: string; icon: React.ReactNode }> = [
+    { id: 'overview', label: '总览工作台', icon: <LayoutDashboard className="h-4 w-4" /> },
+    { id: 'papers', label: '2021–2026 真题下载', icon: <DownloadCloud className="h-4 w-4" /> },
+    { id: 'practice', label: '30 章节与模块练习', icon: <BookOpen className="h-4 w-4" /> },
+    { id: 'mock', label: '模拟考测评', icon: <Award className="h-4 w-4" /> },
+    { id: 'analytics', label: '错题频率与复习计划', icon: <BarChart3 className="h-4 w-4" /> },
+  ];
+
+  const currentNavLabel = navItems.find((n) => n.id === activeView)?.label ?? '工作台';
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] lg:flex">
+      {/* Desktop Left Sidebar (256px) */}
+      <aside className="hidden w-64 shrink-0 flex-col justify-between border-r border-slate-200 bg-white lg:flex">
+        <div>
+          <div className="flex h-16 items-center gap-2.5 border-b border-slate-200 px-6">
+            <FlaskConical className="h-5 w-5 text-[#1D4ED8]" />
+            <span className="font-display text-base font-bold tracking-tight text-slate-900 whitespace-nowrap">
+              Chem9701 Studio
+            </span>
+          </div>
+
+          <nav className="space-y-1 p-4" aria-label="主导航">
+            {navItems.map((item) => {
+              const active = !activeQuiz && activeView === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => {
+                    setActiveQuiz(null);
+                    setActiveView(item.id);
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors whitespace-nowrap ${
+                    active
+                      ? 'bg-blue-50 text-[#1D4ED8]'
+                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  {item.icon}
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="space-y-3 border-t border-slate-200 p-4 text-xs text-slate-500">
+          <div className="space-y-1.5">
+            <button
+              onClick={() => {
+                setAccountModalTab('account');
+                setAccountModalOpen(true);
+              }}
+              className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-left text-xs font-medium text-slate-800 hover:border-[#1D4ED8] hover:text-[#1D4ED8]"
+            >
+              <span className="inline-flex items-center gap-1.5 truncate">
+                <KeyRound className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">
+                  {currentUser ? `${currentUser.displayName}` : '账号密码 / 微信'}
+                </span>
+              </span>
+              <span className="text-[11px] text-slate-400 shrink-0">
+                {currentUser ? '已登录' : '设置'}
+              </span>
+            </button>
+            <button
+              onClick={() => {
+                setAccountModalTab('reset');
+                setAccountModalOpen(true);
+              }}
+              className="flex w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-medium text-slate-700 hover:border-red-300 hover:text-red-700"
+            >
+              <RotateCcw className="h-3.5 w-3.5 shrink-0" />
+              <span>重置 / 回退练习记录</span>
+            </button>
+          </div>
+
+          <div className="border-t border-slate-100 pt-2.5">
+            <div className="font-medium text-slate-700">CAIE 9701 考纲覆盖</div>
+            <div className="mt-1 font-mono tabular-nums">30 Chapters · 6 Modules</div>
+            <div className="mt-0.5 font-mono tabular-nums">2021–2026 Past Papers</div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Top Header */}
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white/95 px-4 backdrop-blur-xs sm:px-8">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => setMobileMenuOpen((v) => !v)}
+              className="rounded-lg border border-slate-200 p-2 text-slate-600 lg:hidden"
+              aria-label="切换导航菜单"
+            >
+              {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            </button>
+            <div className="flex items-center gap-2 text-sm text-slate-500 min-w-0">
+              <span className="font-medium text-slate-900 whitespace-nowrap">
+                Chem9701
+              </span>
+              <span aria-hidden="true">/</span>
+              <span className="truncate">
+                {activeQuiz ? activeQuiz.title : currentNavLabel}
+              </span>
+            </div>
+          </div>
+
+          {!activeQuiz && (
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                onClick={() => {
+                  setAccountModalTab('reset');
+                  setAccountModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900 whitespace-nowrap shrink-0"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                记录重置
+              </button>
+              <button
+                onClick={() => {
+                  setAccountModalTab('account');
+                  setAccountModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-[#1D4ED8] hover:text-[#1D4ED8] whitespace-nowrap shrink-0"
+              >
+                <KeyRound className="h-3.5 w-3.5" />
+                {currentUser ? currentUser.displayName : '账号密码'}
+              </button>
+              <button
+                onClick={handleStartQuickMock}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#1D4ED8] px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-[#1E40AF] whitespace-nowrap shrink-0"
+              >
+                <Play className="h-3.5 w-3.5" />
+                快速诊断模考
+              </button>
+            </div>
+          )}
+        </header>
+
+        {/* Mobile Drawer Nav */}
+        {mobileMenuOpen && (
+          <div className="border-b border-slate-200 bg-white p-3 lg:hidden">
+            <nav className="space-y-1">
+              {navItems.map((item) => {
+                const active = !activeQuiz && activeView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setActiveQuiz(null);
+                      setActiveView(item.id);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
+                      active ? 'bg-blue-50 text-[#1D4ED8]' : 'text-slate-700'
+                    }`}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        )}
+
+        {/* Viewport Body */}
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-8 sm:py-8">
+          {activeQuiz ? (
+            <QuizWorkspace
+              session={activeQuiz}
+              sessionAttemptCount={
+                sessionSnapshot?.sessionId === activeQuiz.id
+                  ? sessionSnapshot.recordedAttemptsCount
+                  : 0
+              }
+              onExit={() => setActiveQuiz(null)}
+              onRecordAttempt={handleRecordAttempt}
+              onMockCompleted={handleMockCompleted}
+              onRollbackCurrentSession={handleRollbackLatestSession}
+            />
+          ) : activeView === 'overview' ? (
+            <OverviewView
+              questions={allQuestions}
+              statsMap={statsMap}
+              chapterSummaries={chapterSummaries}
+              mockHistory={mockHistory}
+              targetExamDate={targetExamDate}
+              downloadedPaperCount={downloadedPapers.length}
+              onNavigate={setActiveView}
+              onStartChapterQuiz={handleStartChapterQuiz}
+              onStartModuleQuiz={handleStartModuleQuiz}
+              onStartMistakesQuiz={handleStartMistakesQuiz}
+              onStartQuickMock={handleStartQuickMock}
+            />
+          ) : activeView === 'papers' ? (
+            <PaperDownloaderView
+              downloadedPapers={downloadedPapers}
+              customQuestions={customQuestions}
+              onPaperIngested={handlePaperIngested}
+              onSaveClippedQuestion={handleSaveClippedQuestion}
+              onPracticeQuestions={(title, subtitle, qs) =>
+                startQuizSession({
+                  id: `quiz-paper-${Date.now()}`,
+                  title,
+                  subtitle,
+                  mode: 'practice',
+                  questions: qs,
+                })
+              }
+            />
+          ) : activeView === 'practice' ? (
+            <ChapterModuleView
+              questions={allQuestions}
+              chapterSummaries={chapterSummaries}
+              moduleSummaries={moduleSummaries}
+              onStartChapterQuiz={handleStartChapterQuiz}
+              onStartModuleQuiz={handleStartModuleQuiz}
+            />
+          ) : activeView === 'mock' ? (
+            <MockExamSetupView
+              questions={allQuestions}
+              mockHistory={mockHistory}
+              onStartMock={(config) =>
+                startQuizSession({
+                  id: `mock-${Date.now()}`,
+                  title: config.title,
+                  subtitle: 'CAIE 9701 限时模拟测评',
+                  mode: 'mock',
+                  paperModeLabel: config.paperModeLabel,
+                  questions: config.questions,
+                  durationSeconds: config.durationSeconds,
+                })
+              }
+            />
+          ) : (
+            <AnalyticsAndPlanView
+              questions={allQuestions}
+              statsMap={statsMap}
+              chapterSummaries={chapterSummaries}
+              moduleSummaries={moduleSummaries}
+              revisionPlan={revisionPlan}
+              targetExamDate={targetExamDate}
+              onChangeTargetDate={setTargetExamDate}
+              onPlanGenerated={setRevisionPlan}
+              onToggleTask={handleToggleRevisionTask}
+              onStartMistakesQuiz={handleStartMistakesQuiz}
+              onStartTaskQuiz={handleStartTaskQuiz}
+            />
+          )}
+        </main>
+      </div>
+
+      <AccountResetModal
+        isOpen={accountModalOpen}
+        initialTab={accountModalTab}
+        onClose={() => setAccountModalOpen(false)}
+        authToken={authToken}
+        currentUser={currentUser}
+        latestSnapshot={sessionSnapshot}
+        totalRecordedAttempts={Object.values(statsMap).reduce((s, x) => s + x.attempts, 0)}
+        totalMockHistory={mockHistory.length}
+        currentProgressPayload={{
+          statsMap,
+          mockHistory,
+          revisionPlan,
+          targetExamDate,
+        }}
+        onAuthSuccess={(token, user, progress) => {
+          localStorage.setItem(STORAGE_KEYS.authToken, token);
+          skipNextSyncRef.current = true;
+          setAuthToken(token);
+          setCurrentUser(user);
+          setStatsMap(progress.statsMap ?? {});
+          setMockHistory(progress.mockHistory ?? []);
+          setRevisionPlan(progress.revisionPlan ?? null);
+          if (progress.targetExamDate) setTargetExamDate(progress.targetExamDate);
+        }}
+        onUserUpdated={(user) => setCurrentUser(user)}
+        onLogout={() => {
+          localStorage.removeItem(STORAGE_KEYS.authToken);
+          setAuthToken(null);
+          setCurrentUser(null);
+        }}
+        onRollbackLastSession={handleRollbackLatestSession}
+        onFullResetConfirmed={(clearedProgress) => {
+          skipNextSyncRef.current = true;
+          setStatsMap(clearedProgress.statsMap ?? {});
+          setMockHistory(clearedProgress.mockHistory ?? []);
+          setRevisionPlan(clearedProgress.revisionPlan ?? null);
+          setSessionSnapshot(null);
+        }}
+      />
+    </div>
+  );
+}
