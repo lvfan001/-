@@ -154,7 +154,7 @@ export function AnalyticsAndPlanView({
                         <span className="font-mono font-semibold text-[#F8F7F4]">
                           {item.chapter.code}
                         </span>{' '}
-                        {item.chapter.titleZh}
+                        {item.chapter.titleEn}
                       </span>
                       <span className={`shrink-0 font-mono font-medium tabular-nums ${textColor}`}>
                         {statusText} · {pct}% ({item.wrongCount}/{item.attempts})

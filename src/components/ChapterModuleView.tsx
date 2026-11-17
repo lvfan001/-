@@ -13,6 +13,8 @@ interface ChapterModuleViewProps {
   questions: Question[];
   chapterSummaries: ChapterErrorSummary[];
   moduleSummaries: ModuleErrorSummary[];
+  activeTab: 'chapters' | 'modules';
+  onTabChange: (tab: 'chapters' | 'modules') => void;
   onStartChapterQuiz: (chapterId: number) => void;
   onStartModuleQuiz: (moduleId: string) => void;
 }
@@ -21,10 +23,11 @@ export function ChapterModuleView({
   questions,
   chapterSummaries,
   moduleSummaries,
+  activeTab,
+  onTabChange,
   onStartChapterQuiz,
   onStartModuleQuiz,
 }: ChapterModuleViewProps) {
-  const [activeTab, setActiveTab] = useState<'chapters' | 'modules'>('chapters');
   const [levelFilter, setLevelFilter] = useState<ChemLevel | 'ALL'>('ALL');
   const [branchFilter, setBranchFilter] = useState<ChemBranch | 'ALL'>('ALL');
 
@@ -54,7 +57,7 @@ export function ChapterModuleView({
 
         <div className="inline-flex rounded-lg border border-white/10 bg-[#18181A] p-1 shrink-0">
           <button
-            onClick={() => setActiveTab('chapters')}
+            onClick={() => onTabChange('chapters')}
             className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
               activeTab === 'chapters'
                 ? 'bg-[#E0A458] text-[#111113] font-semibold'
@@ -64,7 +67,7 @@ export function ChapterModuleView({
             30 章节单章练习
           </button>
           <button
-            onClick={() => setActiveTab('modules')}
+            onClick={() => onTabChange('modules')}
             className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
               activeTab === 'modules'
                 ? 'bg-[#E0A458] text-[#111113] font-semibold'
@@ -142,9 +145,8 @@ export function ChapterModuleView({
                       </span>
                     </div>
                     <h3 className="mt-1.5 text-base font-semibold text-[#F8F7F4]">
-                      {ch.titleZh}
+                      {ch.titleEn}
                     </h3>
-                    <p className="text-xs text-[#F8F7F4]/50">{ch.titleEn}</p>
                     <p className="mt-2.5 text-xs leading-relaxed text-[#F8F7F4]/65">
                       核心考点：{ch.keyTopics.join(' · ')}
                     </p>

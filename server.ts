@@ -16,6 +16,12 @@ import { CHAPTERS, STUDY_MODULES, resolveModuleForChapters } from './src/data/sy
 import { enforceForwardDependencyIsolation } from './src/utils/chapterClassifier.ts';
 import { registerAuthRoutes } from './server/auth.ts';
 import { ensureClippedImageOnDisk } from './server/paperCropper.ts';
+import {
+  downloadAndCache9701Pdf,
+  isValid9701PdfFilename,
+  scrapeAvailableSessions,
+  scrapeSessionFiles,
+} from './server/paperScraper.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -265,6 +271,61 @@ app.get('/api/papers/catalog', (req, res) => {
   }
 
   res.json({ items });
+});
+
+// 2b. Live Scraped CAIE 9701 Years & Sessions Index
+app.get('/api/papers/sessions', async (req, res) => {
+  try {
+    const refresh = req.query.refresh === '1';
+    const years = await scrapeAvailableSessions(refresh);
+    res.json({ years });
+  } catch (err) {
+    res.status(500).json({
+      error: `抓取真题年份列表失败：${err instanceof Error ? err.message : '未知错误'}`,
+    });
+  }
+});
+
+// 2c. Live Scraped Session Papers (P1-P5, Variants, QP & MS)
+app.get('/api/papers/session-files', async (req, res) => {
+  const slug = typeof req.query.slug === 'string' ? req.query.slug.trim() : '';
+  const refresh = req.query.refresh === '1';
+  if (!slug) {
+    res.status(400).json({ error: '缺少考季目录标识 slug' });
+    return;
+  }
+  try {
+    const data = await scrapeSessionFiles(slug, refresh);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({
+      error: `抓取网页真题列表失败：${err instanceof Error ? err.message : '未知错误'}`,
+    });
+  }
+});
+
+// 2d. Direct 1-click PDF Download Proxy (QP / MS / CI / ER / GT)
+app.get('/api/papers/download-file', async (req, res) => {
+  const file = typeof req.query.file === 'string' ? req.query.file.trim() : '';
+  if (!isValid9701PdfFilename(file)) {
+    res.status(400).json({ error: '非法的文件名格式' });
+    return;
+  }
+  try {
+    const filePath = await downloadAndCache9701Pdf(file);
+    if (!filePath) {
+      res.status(404).json({ error: `未能在源站找到文件 ${file}` });
+      return;
+    }
+    const disposition = req.query.inline === '1' ? 'inline' : 'attachment';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `${disposition}; filename="${file}"`);
+    res.sendFile(filePath);
+  } catch (err) {
+    res.status(500).json({
+      error: `下载 PDF 失败：${err instanceof Error ? err.message : '未知错误'}`,
+    });
+  }
 });
 
 // 3. Download or stream PDF Binary stored on server
@@ -947,113 +1008,6 @@ app.post('/api/questions/grade-structured', async (req, res) => {
   } catch (err) {
     res.status(500).json({
       error: `AI 阅卷失败：${err instanceof Error ? err.message : '未知错误'}`,
-    });
-  }
-});
-
-// 8. AI Bounding-Box Detection on a Rendered PDF Page Image (for Screenshot Clipper Studio)
-app.post('/api/papers/detect-crops', async (req, res) => {
-  const { imageBase64, paperCode, pageNumber } = req.body as {
-    imageBase64: string;
-    paperCode?: string;
-    pageNumber?: number;
-  };
-
-  if (!imageBase64) {
-    res.status(400).json({ error: '缺少页面图像数据。' });
-    return;
-  }
-
-  const ai = getGeminiClient();
-  if (!ai) {
-    res.status(400).json({
-      error: '未配置 GEMINI_API_KEY，您可以直接在左侧画布使用鼠标拖拽手动框选截图切题。',
-    });
-    return;
-  }
-
-  try {
-    const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-    const resp = await ai.models.generateContent({
-      model: 'gemini-4-hydrogen',
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: 'image/png',
-              data: cleanBase64,
-            },
-          },
-          {
-            text:
-              `Locate every exam question block (splitting Paper 2/4 structured questions at (a)/(b)/(c) boundaries while keeping coupled (i)-(iii) together with diagrams/tables) on this CAIE A-Level Chemistry 9701 page (${paperCode ?? '9701'}, page ${pageNumber ?? 1}).\n` +
-              `Return normalized bounding boxes [ymin, xmin, ymax, xmax] from 0 to 1000.\n` +
-              `Also extract questionNumber, type ('mcq' or 'structured'), marks, chapters (strict 1-30 forward-dependency tags — include all involved chapters if >=2), promptEn, promptZh, options (if MCQ), correctOption (if determinable), markSchemePoints, explanationEn, explanationZh.\n\n` +
-              `Syllabus Chapters (1-30):\n${SYLLABUS_BRIEF}`,
-          },
-        ],
-      },
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              box: {
-                type: Type.ARRAY,
-                items: { type: Type.INTEGER },
-                description: '[ymin, xmin, ymax, xmax] normalized 0-1000',
-              },
-              questionNumber: { type: Type.INTEGER },
-              type: { type: Type.STRING },
-              marks: { type: Type.INTEGER },
-              chapters: { type: Type.ARRAY, items: { type: Type.INTEGER } },
-              promptEn: { type: Type.STRING },
-              promptZh: { type: Type.STRING },
-              correctOption: { type: Type.STRING },
-              explanationEn: { type: Type.STRING },
-              explanationZh: { type: Type.STRING },
-              hasDiagram: { type: Type.BOOLEAN },
-            },
-            required: ['box', 'questionNumber', 'type', 'marks', 'chapters', 'promptEn'],
-          },
-        },
-      },
-    });
-
-    const parsed = parseJsonSafe<Array<Record<string, unknown>>>(resp.text, []);
-    const regions = parsed.map((item, idx) => {
-      const rawBox = Array.isArray(item.box) ? item.box.map(Number) : [100, 60, 420, 940];
-      const box: [number, number, number, number] = [
-        Math.max(0, Math.min(980, rawBox[0] ?? 100)),
-        Math.max(0, Math.min(980, rawBox[1] ?? 60)),
-        Math.max(20, Math.min(1000, rawBox[2] ?? 420)),
-        Math.max(20, Math.min(1000, rawBox[3] ?? 940)),
-      ];
-      const chapters = Array.isArray(item.chapters)
-        ? item.chapters.map(Number).filter((n) => n >= 1 && n <= 30)
-        : [1];
-      return {
-        id: `crop-${Date.now()}-${idx}`,
-        box,
-        questionNumber: Number(item.questionNumber) || idx + 1,
-        type: item.type === 'mcq' ? 'mcq' : 'structured',
-        marks: Math.max(1, Number(item.marks) || 1),
-        chapters: chapters.length > 0 ? chapters : [1],
-        promptEn: String(item.promptEn ?? ''),
-        promptZh: String(item.promptZh ?? ''),
-        correctOption: String(item.correctOption ?? 'A').toUpperCase(),
-        explanationEn: String(item.explanationEn ?? ''),
-        explanationZh: String(item.explanationZh ?? ''),
-        hasDiagram: Boolean(item.hasDiagram),
-      };
-    });
-
-    res.json({ regions });
-  } catch (err) {
-    res.status(500).json({
-      error: `AI 自动框选失败：${err instanceof Error ? err.message : '请尝试手动拖拽框选'}`,
     });
   }
 });

@@ -30,7 +30,7 @@ interface OverviewViewProps {
   downloadedPaperCount: number;
   onNavigate: (view: AppView) => void;
   onStartChapterQuiz: (chapterId: number) => void;
-  onStartModuleQuiz: (moduleId: string) => void;
+  onOpenModulesPage: () => void;
   onStartMistakesQuiz: () => void;
   onStartQuickMock: () => void;
 }
@@ -44,7 +44,7 @@ export function OverviewView({
   downloadedPaperCount,
   onNavigate,
   onStartChapterQuiz,
-  onStartModuleQuiz,
+  onOpenModulesPage,
   onStartMistakesQuiz,
   onStartQuickMock,
 }: OverviewViewProps) {
@@ -177,7 +177,7 @@ export function OverviewView({
               Ch 14–18 · {asOrganicQuestionCount} 道跨章综合题
             </span>
             <button
-              onClick={() => onStartModuleQuiz('mod-as-organic')}
+              onClick={onOpenModulesPage}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-[#E0A458] transition-colors hover:text-[#EBB66E] whitespace-nowrap shrink-0"
             >
               进入模块练习
@@ -330,7 +330,7 @@ export function OverviewView({
                   </span>
                 </div>
                 <div className="mt-1.5 line-clamp-2 text-xs font-medium text-[#F8F7F4] group-hover:text-[#E0A458]">
-                  {item.chapter.titleZh}
+                  {item.chapter.titleEn}
                 </div>
                 <div className="mt-2 flex items-center justify-between text-[11px] tabular-nums">
                   <span className={`font-medium ${statusTextColor}`}>{statusLabel}</span>

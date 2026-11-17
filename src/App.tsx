@@ -66,6 +66,7 @@ function deepClone<T>(val: T): T {
 
 export default function App() {
   const [activeView, setActiveView] = useState<AppView>('overview');
+  const [practiceTab, setPracticeTab] = useState<'chapters' | 'modules'>('chapters');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [customQuestions, setCustomQuestions] = useState<Question[]>(() =>
@@ -204,25 +205,6 @@ export default function App() {
     [allQuestions, statsMap]
   );
 
-  function handlePaperIngested(paper: DownloadedPaper, newQuestions: Question[]) {
-    setDownloadedPapers((prev) => [
-      paper,
-      ...prev.filter((p) => p.paperCode !== paper.paperCode),
-    ]);
-    if (newQuestions.length > 0) {
-      const normalized = newQuestions.map(normalizeQuestionClassification);
-      setCustomQuestions((prev) => [
-        ...normalized,
-        ...prev.filter((q) => q.paperCode !== paper.paperCode),
-      ]);
-    }
-  }
-
-  function handleSaveClippedQuestion(question: Question) {
-    const normalized = normalizeQuestionClassification(question);
-    setCustomQuestions((prev) => [normalized, ...prev.filter((q) => q.id !== normalized.id)]);
-  }
-
   function startQuizSession(sessionConfig: ActiveQuizSession) {
     setSessionSnapshot({
       sessionId: sessionConfig.id,
@@ -262,8 +244,8 @@ export default function App() {
 
     startQuizSession({
       id: `quiz-ch-${chapterId}-${Date.now()}`,
-      title: `${ch?.code ?? `Ch ${chapterId}`} · ${ch?.titleZh ?? ''}`,
-      subtitle: `${ch?.titleEn ?? ''} · 单章可解专项真题（严格按教材章节隔离）`,
+      title: `${ch?.code ?? `Ch ${chapterId}`} · ${ch?.titleEn ?? ''}`,
+      subtitle: `单章可解专项真题（严格按教材章节隔离）`,
       mode: 'practice',
       questions: single,
     });
@@ -383,10 +365,10 @@ export default function App() {
 
   const navItems: Array<{ id: AppView; label: string; icon: React.ReactNode }> = [
     { id: 'overview', label: '总览工作台', icon: <LayoutDashboard className="h-4 w-4" /> },
-    { id: 'papers', label: '2021–2026 真题下载', icon: <DownloadCloud className="h-4 w-4" /> },
     { id: 'practice', label: '30 章节与模块练习', icon: <BookOpen className="h-4 w-4" /> },
     { id: 'mock', label: '模拟考测评', icon: <Award className="h-4 w-4" /> },
     { id: 'analytics', label: '错题频率与复习计划', icon: <BarChart3 className="h-4 w-4" /> },
+    { id: 'papers', label: '历年真题下载', icon: <DownloadCloud className="h-4 w-4" /> },
   ];
 
   const currentNavLabel = navItems.find((n) => n.id === activeView)?.label ?? '工作台';
@@ -411,6 +393,9 @@ export default function App() {
                   key={item.id}
                   onClick={() => {
                     setActiveQuiz(null);
+                    if (item.id === 'practice') {
+                      setPracticeTab('chapters');
+                    }
                     setActiveView(item.id);
                   }}
                   className={`flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-left text-sm font-medium transition-colors whitespace-nowrap ${
@@ -539,6 +524,9 @@ export default function App() {
                     key={item.id}
                     onClick={() => {
                       setActiveQuiz(null);
+                      if (item.id === 'practice') {
+                        setPracticeTab('chapters');
+                      }
                       setActiveView(item.id);
                       setMobileMenuOpen(false);
                     }}
@@ -580,31 +568,22 @@ export default function App() {
               downloadedPaperCount={downloadedPapers.length}
               onNavigate={setActiveView}
               onStartChapterQuiz={handleStartChapterQuiz}
-              onStartModuleQuiz={handleStartModuleQuiz}
+              onOpenModulesPage={() => {
+                setPracticeTab('modules');
+                setActiveView('practice');
+              }}
               onStartMistakesQuiz={handleStartMistakesQuiz}
               onStartQuickMock={handleStartQuickMock}
             />
           ) : activeView === 'papers' ? (
-            <PaperDownloaderView
-              downloadedPapers={downloadedPapers}
-              customQuestions={customQuestions}
-              onPaperIngested={handlePaperIngested}
-              onSaveClippedQuestion={handleSaveClippedQuestion}
-              onPracticeQuestions={(title, subtitle, qs) =>
-                startQuizSession({
-                  id: `quiz-paper-${Date.now()}`,
-                  title,
-                  subtitle,
-                  mode: 'practice',
-                  questions: qs,
-                })
-              }
-            />
+            <PaperDownloaderView />
           ) : activeView === 'practice' ? (
             <ChapterModuleView
               questions={allQuestions}
               chapterSummaries={chapterSummaries}
               moduleSummaries={moduleSummaries}
+              activeTab={practiceTab}
+              onTabChange={setPracticeTab}
               onStartChapterQuiz={handleStartChapterQuiz}
               onStartModuleQuiz={handleStartModuleQuiz}
             />
