@@ -4,12 +4,13 @@ import {
   CheckCircle2,
   KeyRound,
   Loader2,
+  LogIn,
   LogOut,
   RotateCcw,
   ShieldCheck,
-  Smartphone,
   Trash2,
   UserCheck,
+  UserPlus,
   X,
 } from 'lucide-react';
 import type {
@@ -61,11 +62,12 @@ export function AccountResetModal({
   onFullResetConfirmed,
 }: AccountResetModalProps) {
   const [tab, setTab] = useState<'account' | 'reset'>(initialTab);
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('register');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
 
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [migrateGuestData, setMigrateGuestData] = useState(true);
 
   const [currentPassword, setCurrentPassword] = useState('');
@@ -85,6 +87,7 @@ export function AccountResetModal({
       setErrorMsg(null);
       setSuccessMsg(null);
       setResetPassword('');
+      setConfirmPassword('');
       setConfirmRollback(false);
     }
   }, [isOpen, initialTab]);
@@ -95,6 +98,12 @@ export function AccountResetModal({
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    if (authMode === 'register' && password !== confirmPassword) {
+      setErrorMsg('两次输入的登录密码不一致，请核对后重试。');
+      return;
+    }
+
     setLoading(true);
     try {
       const endpoint = authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
@@ -120,10 +129,11 @@ export function AccountResetModal({
       }
       onAuthSuccess(data.token, data.user as AuthUser, data.progress as SyncProgressData);
       setPassword('');
+      setConfirmPassword('');
       setSuccessMsg(
         authMode === 'register'
-          ? '账号与密码设置完成，当前练习记录已关联并同步。'
-          : '登录成功，已加载云端保存的练习与模考记录。'
+          ? '注册成功！当前登录密码将同步用于重置练习记录的安全验证。'
+          : '登录成功，已加载账号保存的练习与模考记录。'
       );
     } catch (err) {
       setErrorMsg(`网络请求失败：${err instanceof Error ? err.message : '未知错误'}`);
@@ -166,7 +176,7 @@ export function AccountResetModal({
       setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
-      setSuccessMsg('密码已更新生效，可用于后续重要数据重置验证。');
+      setSuccessMsg('登录密码已更新生效，重置全部记录时将沿用该密码进行验证。');
     } catch (err) {
       setErrorMsg(`网络异常：${err instanceof Error ? err.message : '未知错误'}`);
     } finally {
@@ -179,7 +189,7 @@ export function AccountResetModal({
     setErrorMsg(null);
     setSuccessMsg(null);
     if (!resetPassword.trim()) {
-      setErrorMsg('请输入账号密码完成验证后再清空全部历史记录。');
+      setErrorMsg('请输入当前账号的登录密码后再清空全部历史记录。');
       return;
     }
     setLoading(true);
@@ -219,16 +229,16 @@ export function AccountResetModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-xs"
       role="dialog"
       aria-modal="true"
-      aria-label="账号设置与练习记录重置"
+      aria-label="账号登录注册与练习记录重置"
     >
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-white/12 bg-[#18181A] shadow-2xl">
         <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <div>
             <h2 className="text-base font-semibold text-[#F8F7F4]">
-              账号密码管理与练习记录重置
+              账号登录 / 注册与练习记录管理
             </h2>
             <p className="mt-0.5 text-xs text-[#F8F7F4]/55">
-              支持单次试做记录无损回退、密码验证清空全部历史记录，并预留微信小程序 wx.login 账号对接
+              登录或注册账号即可保存学习进度，重置全部记录时直接沿用登录所设置的密码进行验证
             </p>
           </div>
           <button
@@ -244,6 +254,20 @@ export function AccountResetModal({
           <div className="inline-flex rounded-lg border border-white/10 bg-[#111113] p-1">
             <button
               onClick={() => {
+                setTab('account');
+                setErrorMsg(null);
+                setSuccessMsg(null);
+              }}
+              className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
+                tab === 'account'
+                  ? 'bg-[#E0A458] text-[#111113] font-semibold'
+                  : 'text-[#F8F7F4]/60 hover:text-[#F8F7F4]'
+              }`}
+            >
+              {currentUser ? '账号信息与修改密码' : '账号登录 / 注册'}
+            </button>
+            <button
+              onClick={() => {
                 setTab('reset');
                 setErrorMsg(null);
                 setSuccessMsg(null);
@@ -255,20 +279,6 @@ export function AccountResetModal({
               }`}
             >
               练习记录重置与回退
-            </button>
-            <button
-              onClick={() => {
-                setTab('account');
-                setErrorMsg(null);
-                setSuccessMsg(null);
-              }}
-              className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
-                tab === 'account'
-                  ? 'bg-[#E0A458] text-[#111113] font-semibold'
-                  : 'text-[#F8F7F4]/60 hover:text-[#F8F7F4]'
-              }`}
-            >
-              账号密码与微信小程序登录
             </button>
           </div>
         </div>
@@ -349,19 +359,17 @@ export function AccountResetModal({
               <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-5">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#F8F7F4]">
                   <Trash2 className="h-4 w-4 text-red-400" />
-                  重置此前所有练习记录（需验证账号密码）
+                  重置此前所有练习记录（沿用登录密码验证）
                 </div>
                 <p className="mt-1 text-xs leading-relaxed text-[#F8F7F4]/60">
                   将永久清空累计 <span className="font-mono font-semibold text-[#F8F7F4]">{totalRecordedAttempts}</span> 次答题统计、
-                  <span className="font-mono font-semibold text-[#F8F7F4]">{totalMockHistory}</span> 次模拟考成绩单、高频错题档案及当前复习计划。为防止误删，必须验证密码后方可执行。
+                  <span className="font-mono font-semibold text-[#F8F7F4]">{totalMockHistory}</span> 次模拟考成绩单、高频错题档案及当前复习计划。为防止误删，需验证您的账号登录密码。
                 </p>
 
-                {!currentUser || !currentUser.hasPassword ? (
+                {!currentUser ? (
                   <div className="mt-4 flex flex-col justify-between gap-3 rounded-lg border border-[#E0A458]/35 bg-[#E0A458]/10 p-4 sm:flex-row sm:items-center">
                     <div className="text-xs text-[#E0A458]">
-                      {currentUser
-                        ? '当前账号尚未设置密码（例如仅通过微信登录），请先设置安全密码后再重置全部历史记录。'
-                        : '当前为本地访客模式，尚未绑定账号密码。请先创建或登录账号密码，系统会自动迁移当前本地进度。'}
+                      当前尚未登录账号。请先登录或注册账号（注册时设置的密码即作为重置验证密码），系统会自动保留并关联当前本地记录。
                     </div>
                     <button
                       onClick={() => {
@@ -371,21 +379,21 @@ export function AccountResetModal({
                       }}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-[#E0A458] px-3.5 py-2 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E] whitespace-nowrap shrink-0"
                     >
-                      <KeyRound className="h-3.5 w-3.5" />
-                      去设置账号密码
+                      <LogIn className="h-3.5 w-3.5" />
+                      去登录 / 注册
                     </button>
                   </div>
                 ) : (
                   <form onSubmit={handleVerifiedFullReset} className="mt-4 space-y-3">
                     <div>
                       <label className="block text-xs font-medium text-[#F8F7F4]/75">
-                        验证账号 <span className="font-mono text-[#E0A458]">{currentUser.username}</span> 的登录密码
+                        请输入账号 <span className="font-mono text-[#E0A458]">{currentUser.username}</span> 的登录密码
                       </label>
                       <input
                         type="password"
                         value={resetPassword}
                         onChange={(e) => setResetPassword(e.target.value)}
-                        placeholder="请输入账号密码以确认清空全部练习记录..."
+                        placeholder="请输入登录时设置的密码..."
                         className="mt-1.5 w-full rounded-lg border border-white/15 bg-[#111113] px-3.5 py-2 text-sm text-[#F8F7F4] placeholder:text-[#F8F7F4]/35 focus:border-red-500 focus:outline-none"
                       />
                     </div>
@@ -400,7 +408,7 @@ export function AccountResetModal({
                         ) : (
                           <ShieldCheck className="h-3.5 w-3.5" />
                         )}
-                        验证密码并清空全部练习记录
+                        验证登录密码并清空全部记录
                       </button>
                     </div>
                   </form>
@@ -410,45 +418,54 @@ export function AccountResetModal({
           ) : (
             <div className="space-y-5">
               {!currentUser ? (
-                <form onSubmit={handleLoginOrRegister} className="space-y-4 rounded-xl border border-white/10 bg-[#141416] p-5">
-                  <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+                <form
+                  onSubmit={handleLoginOrRegister}
+                  className="space-y-4 rounded-xl border border-white/10 bg-[#141416] p-5"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
                     <div className="inline-flex rounded-lg border border-white/10 bg-[#111113] p-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setAuthMode('register');
-                          setErrorMsg(null);
-                        }}
-                        className={`rounded-md px-3 py-1 text-xs font-medium whitespace-nowrap ${
-                          authMode === 'register'
-                            ? 'bg-[#E0A458] text-[#111113] font-semibold'
-                            : 'text-[#F8F7F4]/60'
-                        }`}
-                      >
-                        注册并设置密码
-                      </button>
                       <button
                         type="button"
                         onClick={() => {
                           setAuthMode('login');
                           setErrorMsg(null);
+                          setSuccessMsg(null);
                         }}
-                        className={`rounded-md px-3 py-1 text-xs font-medium whitespace-nowrap ${
+                        className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-medium whitespace-nowrap ${
                           authMode === 'login'
                             ? 'bg-[#E0A458] text-[#111113] font-semibold'
-                            : 'text-[#F8F7F4]/60'
+                            : 'text-[#F8F7F4]/65 hover:text-[#F8F7F4]'
                         }`}
                       >
-                        已有账号登录
+                        <LogIn className="h-3.5 w-3.5" />
+                        账号登录
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAuthMode('register');
+                          setErrorMsg(null);
+                          setSuccessMsg(null);
+                        }}
+                        className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-medium whitespace-nowrap ${
+                          authMode === 'register'
+                            ? 'bg-[#E0A458] text-[#111113] font-semibold'
+                            : 'text-[#F8F7F4]/65 hover:text-[#F8F7F4]'
+                        }`}
+                      >
+                        <UserPlus className="h-3.5 w-3.5" />
+                        新用户注册
                       </button>
                     </div>
-                    <span className="text-xs text-[#F8F7F4]/50">支持全平台记录同步</span>
+                    <span className="text-xs text-[#F8F7F4]/50">
+                      登录密码同时用于重置记录验证
+                    </span>
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div>
+                    <div className={authMode === 'login' ? 'sm:col-span-2' : ''}>
                       <label className="block text-xs font-medium text-[#F8F7F4]/75">
-                        账号名 (3–32 位字母/数字/中文)
+                        账号名 (3–32 位字母、数字或中文)
                       </label>
                       <input
                         type="text"
@@ -475,19 +492,37 @@ export function AccountResetModal({
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-[#F8F7F4]/75">
-                      密码 (至少 6 位，用于登录及重置全部记录验证)
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      minLength={6}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="请输入 6 位以上密码"
-                      className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-3 py-2 text-sm text-[#F8F7F4] placeholder:text-[#F8F7F4]/30 focus:border-[#E0A458] focus:outline-none"
-                    />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className={authMode === 'login' ? 'sm:col-span-2' : ''}>
+                      <label className="block text-xs font-medium text-[#F8F7F4]/75">
+                        登录密码（至少 6 位，重置记录时沿用此密码）
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        minLength={6}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="请输入 6 位以上密码"
+                        className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-3 py-2 text-sm text-[#F8F7F4] placeholder:text-[#F8F7F4]/30 focus:border-[#E0A458] focus:outline-none"
+                      />
+                    </div>
+                    {authMode === 'register' && (
+                      <div>
+                        <label className="block text-xs font-medium text-[#F8F7F4]/75">
+                          确认登录密码
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          minLength={6}
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="请再次输入密码"
+                          className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-3 py-2 text-sm text-[#F8F7F4] placeholder:text-[#F8F7F4]/30 focus:border-[#E0A458] focus:outline-none"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {authMode === 'register' && (totalRecordedAttempts > 0 || totalMockHistory > 0) && (
@@ -499,19 +534,29 @@ export function AccountResetModal({
                         className="accent-[#E0A458]"
                       />
                       <span>
-                        将当前浏览器访客记录（{totalRecordedAttempts} 次答题 · {totalMockHistory} 次模考）自动合并到新账号
+                        将当前浏览器本地记录（{totalRecordedAttempts} 次答题 · {totalMockHistory} 次模考）自动关联到新账号
                       </span>
                     </label>
                   )}
 
-                  <div className="flex justify-end">
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode(authMode === 'login' ? 'register' : 'login');
+                        setErrorMsg(null);
+                      }}
+                      className="text-xs text-[#F8F7F4]/60 hover:text-[#E0A458]"
+                    >
+                      {authMode === 'login' ? '还没有账号？点击注册' : '已有账号？直接登录'}
+                    </button>
                     <button
                       type="submit"
                       disabled={loading}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-[#E0A458] px-4 py-2 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E] disabled:opacity-45 whitespace-nowrap"
                     >
                       {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                      {authMode === 'register' ? '创建账号并启用密码保护' : '立即登录'}
+                      {authMode === 'register' ? '完成注册并登录' : '立即登录'}
                     </button>
                   </div>
                 </form>
@@ -530,10 +575,7 @@ export function AccountResetModal({
                           </span>
                         </div>
                         <div className="mt-0.5 text-xs text-[#F8F7F4]/60">
-                          密码保护：{currentUser.hasPassword ? '已设置' : '未设置'} · 微信绑定：
-                          {currentUser.wechatBound
-                            ? `已绑定 (${currentUser.wechatOpenIdMasked ?? 'OpenID'})`
-                            : '待发布微信小程序后绑定'}
+                          已登录 · 重置练习记录将直接验证该账号的登录密码
                         </div>
                       </div>
                     </div>
@@ -547,10 +589,13 @@ export function AccountResetModal({
                     </button>
                   </div>
 
-                  <form onSubmit={handleSetPassword} className="space-y-3 rounded-xl border border-white/10 bg-[#141416] p-4">
+                  <form
+                    onSubmit={handleSetPassword}
+                    className="space-y-3 rounded-xl border border-white/10 bg-[#141416] p-4"
+                  >
                     <div className="flex items-center gap-2 text-xs font-semibold text-[#F8F7F4]">
                       <KeyRound className="h-3.5 w-3.5 text-[#E0A458]" />
-                      {currentUser.hasPassword ? '修改账号密码' : '为当前账号设置重置密码'}
+                      修改登录密码（同步更新重置验证密码）
                     </div>
                     {currentUser.hasPassword && (
                       <input
@@ -558,7 +603,7 @@ export function AccountResetModal({
                         required
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="请输入当前密码"
+                        placeholder="请输入当前登录密码"
                         className="w-full rounded-lg border border-white/12 bg-[#111113] px-3 py-2 text-sm text-[#F8F7F4] placeholder:text-[#F8F7F4]/30 focus:border-[#E0A458] focus:outline-none"
                       />
                     )}
@@ -589,27 +634,12 @@ export function AccountResetModal({
                         className="inline-flex items-center gap-1.5 rounded-lg bg-[#E0A458] px-3.5 py-1.5 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E] disabled:opacity-45 whitespace-nowrap"
                       >
                         {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                        保存密码
+                        保存新密码
                       </button>
                     </div>
                   </form>
                 </div>
               )}
-
-              <div className="rounded-xl border border-white/10 bg-[#141416] p-4">
-                <div className="flex items-center gap-2 text-xs font-semibold text-[#F8F7F4]">
-                  <Smartphone className="h-4 w-4 text-emerald-400" />
-                  微信小程序账号直接登录接口已就绪
-                </div>
-                <p className="mt-1.5 text-xs leading-relaxed text-[#F8F7F4]/60">
-                  后端已内置 <span className="font-mono font-medium text-[#E0A458]">POST /api/auth/wechat-miniprogram</span>（调用微信官方{' '}
-                  <span className="font-mono">jscode2session</span> 接口自动抓取用户 OpenID/UnionID）及{' '}
-                  <span className="font-mono font-medium text-[#E0A458]">POST /api/auth/bind-wechat</span>。
-                  后续发布微信小程序时，只需在服务端环境变量配置 <span className="font-mono">WECHAT_APPID</span> 与{' '}
-                  <span className="font-mono">WECHAT_SECRET</span>，小程序端调用 <span className="font-mono">wx.login()</span> 上传{' '}
-                  <span className="font-mono">code</span> 即可自动建号并跨端共享错题记录与密码验证策略。
-                </p>
-              </div>
             </div>
           )}
         </div>

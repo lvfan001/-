@@ -93,10 +93,7 @@ export interface AuthUser {
   id: string;
   username: string;
   displayName: string;
-  authProvider: 'password' | 'wechat-miniprogram';
   hasPassword: boolean;
-  wechatBound: boolean;
-  wechatOpenIdMasked?: string;
   createdAt: string;
 }
 

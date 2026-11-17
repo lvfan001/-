@@ -20,10 +20,6 @@ export interface StoredUser {
   username: string;
   displayName: string;
   passwordHash?: string;
-  authProvider: 'password' | 'wechat-miniprogram';
-  wechatOpenId?: string;
-  wechatUnionId?: string;
-  avatarUrl?: string;
   createdAt: string;
   progress: UserProgressPayload;
 }
@@ -37,10 +33,7 @@ export interface PublicUser {
   id: string;
   username: string;
   displayName: string;
-  authProvider: 'password' | 'wechat-miniprogram';
   hasPassword: boolean;
-  wechatBound: boolean;
-  wechatOpenIdMasked?: string;
   createdAt: string;
 }
 
@@ -152,17 +145,11 @@ function verifyToken(token: string, secret: string): string | null {
 }
 
 function toPublicUser(u: StoredUser): PublicUser {
-  const maskedOpenId = u.wechatOpenId
-    ? `${u.wechatOpenId.slice(0, 4)}****${u.wechatOpenId.slice(-4)}`
-    : undefined;
   return {
     id: u.id,
     username: u.username,
     displayName: u.displayName,
-    authProvider: u.authProvider,
     hasPassword: Boolean(u.passwordHash),
-    wechatBound: Boolean(u.wechatOpenId),
-    wechatOpenIdMasked: maskedOpenId,
     createdAt: u.createdAt,
   };
 }
@@ -196,42 +183,6 @@ function sanitizeProgress(raw: unknown): UserProgressPayload {
         ? obj.targetExamDate
         : '2027-05-15',
   };
-}
-
-async function exchangeWechatCode(code: string): Promise<{
-  openid: string;
-  unionid?: string;
-}> {
-  const appId = process.env.WECHAT_APPID?.trim();
-  const secret = process.env.WECHAT_SECRET?.trim();
-  if (
-    !appId ||
-    !secret ||
-    /^(MY_|CHANGE_ME|YOUR_|PLACEHOLDER)/i.test(appId) ||
-    /^(MY_|CHANGE_ME|YOUR_|PLACEHOLDER)/i.test(secret) ||
-    !/^wx[0-9a-f]{16}$/i.test(appId)
-  ) {
-    throw new Error('WECHAT_NOT_CONFIGURED');
-  }
-
-  const url =
-    `https://api.weixin.qq.com/sns/jscode2session` +
-    `?appid=${encodeURIComponent(appId)}` +
-    `&secret=${encodeURIComponent(secret)}` +
-    `&js_code=${encodeURIComponent(code)}` +
-    `&grant_type=authorization_code`;
-
-  const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  const data = (await resp.json()) as {
-    openid?: string;
-    unionid?: string;
-    errcode?: number;
-    errmsg?: string;
-  };
-  if (!resp.ok || data.errcode || !data.openid) {
-    throw new Error(data.errmsg || `WeChat jscode2session error (${data.errcode ?? resp.status})`);
-  }
-  return { openid: data.openid, unionid: data.unionid };
 }
 
 export function registerAuthRoutes(app: Express): void {
@@ -281,7 +232,6 @@ export function registerAuthRoutes(app: Express): void {
       username: cleanUsername,
       displayName: (displayName ?? username ?? cleanUsername).trim().slice(0, 32),
       passwordHash: hashPassword(password),
-      authProvider: 'password',
       createdAt: new Date().toISOString(),
       progress: initialProgress ? sanitizeProgress(initialProgress) : defaultProgress(),
     };
@@ -407,96 +357,5 @@ export function registerAuthRoutes(app: Express): void {
     user.progress = sanitizeProgress(req.body);
     writeStore(store);
     res.json({ ok: true });
-  });
-
-  // WeChat Mini Program wx.login endpoint (for future Mini Program release)
-  app.post('/api/auth/wechat-miniprogram', async (req: Request, res: Response) => {
-    const { code, nickName, avatarUrl, initialProgress } = req.body as {
-      code?: string;
-      nickName?: string;
-      avatarUrl?: string;
-      initialProgress?: UserProgressPayload;
-    };
-
-    if (!code?.trim()) {
-      res.status(400).json({ error: '缺少微信 wx.login 返回的临时登录凭证 code。' });
-      return;
-    }
-
-    try {
-      const { openid, unionid } = await exchangeWechatCode(code.trim());
-      const store = readStore();
-      let user = store.users.find((u) => u.wechatOpenId === openid);
-
-      if (!user) {
-        user = {
-          id: `wx_${crypto.randomBytes(8).toString('hex')}`,
-          username: `wx_${openid.slice(-10)}`,
-          displayName: nickName?.trim() || `微信考生 ${openid.slice(-4)}`,
-          authProvider: 'wechat-miniprogram',
-          wechatOpenId: openid,
-          wechatUnionId: unionid,
-          avatarUrl,
-          createdAt: new Date().toISOString(),
-          progress: initialProgress ? sanitizeProgress(initialProgress) : defaultProgress(),
-        };
-        store.users.push(user);
-      } else {
-        if (nickName?.trim()) user.displayName = nickName.trim();
-        if (avatarUrl) user.avatarUrl = avatarUrl;
-        if (unionid && !user.wechatUnionId) user.wechatUnionId = unionid;
-      }
-
-      writeStore(store);
-      const token = signToken(user.id, getSecret(store));
-      res.json({
-        token,
-        user: toPublicUser(user),
-        progress: user.progress,
-      });
-    } catch (err) {
-      if (err instanceof Error && err.message === 'WECHAT_NOT_CONFIGURED') {
-        res.status(501).json({
-          error:
-            '服务端尚未配置 WECHAT_APPID 与 WECHAT_SECRET。发布微信小程序后在服务端环境变量填入即可自动通过 wx.login 抓取微信账号并同步记录。',
-        });
-        return;
-      }
-      res.status(502).json({
-        error: `微信登录校验失败：${err instanceof Error ? err.message : '未知错误'}`,
-      });
-    }
-  });
-
-  // Bind WeChat OpenID to an existing password user
-  app.post('/api/auth/bind-wechat', async (req: Request, res: Response) => {
-    const store = readStore();
-    const user = resolveAuthenticatedUser(req, store);
-    if (!user) {
-      res.status(401).json({ error: '请先登录账号。' });
-      return;
-    }
-    const { code } = req.body as { code?: string };
-    if (!code?.trim()) {
-      res.status(400).json({ error: '缺少微信 wx.login code。' });
-      return;
-    }
-    try {
-      const { openid, unionid } = await exchangeWechatCode(code.trim());
-      user.wechatOpenId = openid;
-      if (unionid) user.wechatUnionId = unionid;
-      writeStore(store);
-      res.json({ ok: true, user: toPublicUser(user) });
-    } catch (err) {
-      if (err instanceof Error && err.message === 'WECHAT_NOT_CONFIGURED') {
-        res.status(501).json({
-          error: '需配置 WECHAT_APPID 与 WECHAT_SECRET 后才可绑定真实微信 OpenID。',
-        });
-        return;
-      }
-      res.status(502).json({
-        error: `绑定失败：${err instanceof Error ? err.message : '未知错误'}`,
-      });
-    }
   });
 }

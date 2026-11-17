@@ -5,11 +5,12 @@ import {
   BookOpen,
   DownloadCloud,
   FlaskConical,
-  KeyRound,
   LayoutDashboard,
+  LogIn,
   Menu,
   Play,
   RotateCcw,
+  UserCheck,
   X,
 } from 'lucide-react';
 import type {
@@ -422,13 +423,17 @@ export default function App() {
               className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-[#18181A] px-3 py-2 text-left text-xs font-medium text-[#F8F7F4]/90 transition-colors hover:border-[#E0A458]/60 hover:text-[#E0A458]"
             >
               <span className="inline-flex items-center gap-1.5 truncate">
-                <KeyRound className="h-3.5 w-3.5 shrink-0" />
+                {currentUser ? (
+                  <UserCheck className="h-3.5 w-3.5 shrink-0 text-[#E0A458]" />
+                ) : (
+                  <LogIn className="h-3.5 w-3.5 shrink-0" />
+                )}
                 <span className="truncate">
-                  {currentUser ? `${currentUser.displayName}` : '账号密码 / 微信'}
+                  {currentUser ? `${currentUser.displayName}` : '登录 / 注册'}
                 </span>
               </span>
               <span className="font-mono text-[11px] text-[#F8F7F4]/45 shrink-0">
-                {currentUser ? '已登录' : '设置'}
+                {currentUser ? '已登录' : '未登录'}
               </span>
             </button>
             <button
@@ -499,8 +504,12 @@ export default function App() {
                 }}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-[#18181A] px-3 py-2 text-xs font-medium text-[#F8F7F4]/85 transition-colors hover:border-[#E0A458]/60 hover:text-[#E0A458] whitespace-nowrap shrink-0"
               >
-                <KeyRound className="h-3.5 w-3.5" />
-                {currentUser ? currentUser.displayName : '账号密码'}
+                {currentUser ? (
+                  <UserCheck className="h-3.5 w-3.5 text-[#E0A458]" />
+                ) : (
+                  <LogIn className="h-3.5 w-3.5" />
+                )}
+                {currentUser ? currentUser.displayName : '登录 / 注册'}
               </button>
               <button
                 onClick={handleStartQuickMock}
