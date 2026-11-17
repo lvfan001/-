@@ -73,7 +73,6 @@ export function QuizWorkspace({
   const currentQ: Question | undefined = questions[currentIndex];
   const currentAns: AnswerState = currentQ ? answers[currentQ.id] ?? {} : {};
 
-  // Timer effect
   useEffect(() => {
     if (mockReport) return;
     const timer = window.setInterval(() => {
@@ -90,7 +89,6 @@ export function QuizWorkspace({
     return () => window.clearInterval(timer);
   }, [mockReport, session.mode, session.durationSeconds]);
 
-  // Auto-submit when countdown hits 0 in mock mode
   useEffect(() => {
     if (session.mode === 'mock' && session.durationSeconds && secondsLeft === 0 && !mockReport) {
       handleSubmitMock();
@@ -100,11 +98,11 @@ export function QuizWorkspace({
 
   if (!currentQ) {
     return (
-      <div className="rounded-xl border border-slate-200 bg-white p-10 text-center">
-        <p className="text-sm text-slate-600">当前分组暂无可练习的真题。</p>
+      <div className="rounded-xl border border-white/10 bg-[#18181A] p-10 text-center">
+        <p className="text-sm text-[#F8F7F4]/65">当前分组暂无可练习的真题。</p>
         <button
           onClick={onExit}
-          className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white"
+          className="mt-4 rounded-lg bg-[#E0A458] px-4 py-2 text-sm font-semibold text-[#111113]"
         >
           返回
         </button>
@@ -251,7 +249,6 @@ export function QuizWorkspace({
           ans.aiGrade?.awardedMarks !== undefined
             ? ans.aiGrade.awardedMarks
             : Math.min(q.marks, Math.round((checked / Math.max(1, pts)) * q.marks));
-        // If user typed an answer in mock without checking points yet, don't auto-award unless checked/graded
         qCorrect = qEarned >= Math.ceil(q.marks * 0.6);
         userAnsSummary = ans.writtenText?.trim() || '未填写';
       }
@@ -299,23 +296,24 @@ export function QuizWorkspace({
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 
-  // Post-Mock Assessment Report View
   if (mockReport) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
           <div>
-            <p className="text-xs font-medium text-slate-500">MOCK ASSESSMENT REPORT</p>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-900">
+            <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#F8F7F4]/50">
+              MOCK ASSESSMENT REPORT
+            </p>
+            <h1 className="mt-1.5 text-2xl font-semibold text-[#F8F7F4]">
               模拟考测评成绩单 · {mockReport.title}
             </h1>
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
-            {onRollbackCurrentSession && (
-              !confirmRollback ? (
+            {onRollbackCurrentSession &&
+              (!confirmRollback ? (
                 <button
                   onClick={() => setConfirmRollback(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 hover:bg-amber-100 whitespace-nowrap shrink-0"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-[#E0A458]/35 bg-[#E0A458]/10 px-3 py-2 text-xs font-medium text-[#E0A458] hover:bg-[#E0A458]/20 whitespace-nowrap shrink-0"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   回退本次模考记录
@@ -324,29 +322,28 @@ export function QuizWorkspace({
                 <div className="inline-flex items-center gap-1.5">
                   <button
                     onClick={handleExecuteRollback}
-                    className="rounded-lg bg-amber-600 px-3 py-2 text-xs font-medium text-white hover:bg-amber-700 whitespace-nowrap"
+                    className="rounded-lg bg-[#E0A458] px-3 py-2 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E] whitespace-nowrap"
                   >
                     确认撤回本次模考
                   </button>
                   <button
                     onClick={() => setConfirmRollback(false)}
-                    className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-600 whitespace-nowrap"
+                    className="rounded-lg border border-white/15 bg-[#18181A] px-2.5 py-2 text-xs text-[#F8F7F4]/70 whitespace-nowrap"
                   >
                     取消
                   </button>
                 </div>
-              )
-            )}
+              ))}
             <button
               onClick={() => setShowChinese((v) => !v)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#18181A] px-3 py-2 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458]/50 hover:text-[#E0A458] whitespace-nowrap shrink-0"
             >
               <Languages className="h-3.5 w-3.5" />
               {showChinese ? '隐藏中文翻译' : '显示中文翻译'}
             </button>
             <button
               onClick={onExit}
-              className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#E0A458] px-4 py-2 text-sm font-semibold text-[#111113] hover:bg-[#EBB66E] whitespace-nowrap shrink-0"
             >
               <ArrowLeft className="h-4 w-4" />
               返回工作台
@@ -354,52 +351,59 @@ export function QuizWorkspace({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+        <div className="grid grid-cols-2 divide-y divide-white/10 rounded-xl border border-white/10 bg-[#18181A] sm:grid-cols-4 sm:divide-x sm:divide-y-0">
           <div className="p-5">
-            <div className="text-xs text-slate-500">总得分</div>
-            <div className="mt-1.5 font-mono text-2xl font-semibold text-slate-900 tabular-nums">
+            <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#F8F7F4]/50">
+              总得分
+            </div>
+            <div className="mt-1.5 font-mono text-2xl font-semibold text-[#F8F7F4] tabular-nums">
               {mockReport.earnedMarks} / {mockReport.totalMarks}
             </div>
           </div>
           <div className="p-5">
-            <div className="text-xs text-slate-500">得分率</div>
-            <div className="mt-1.5 font-mono text-2xl font-semibold text-slate-900 tabular-nums">
+            <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#F8F7F4]/50">
+              得分率
+            </div>
+            <div className="mt-1.5 font-mono text-2xl font-semibold text-[#F8F7F4] tabular-nums">
               {mockReport.percentage}%
             </div>
           </div>
           <div className="p-5">
-            <div className="text-xs text-slate-500">CAIE 9701 预估等级</div>
-            <div className="mt-1.5 flex items-center gap-2 font-mono text-2xl font-bold text-[#1D4ED8]">
+            <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#F8F7F4]/50">
+              CAIE 9701 预估等级
+            </div>
+            <div className="mt-1.5 flex items-center gap-2 font-mono text-2xl font-bold text-[#E0A458]">
               <Award className="h-5 w-5" />
               {mockReport.estimatedGrade}
             </div>
           </div>
           <div className="p-5">
-            <div className="text-xs text-slate-500">本次错题数</div>
-            <div className="mt-1.5 font-mono text-2xl font-semibold text-red-700 tabular-nums">
+            <div className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#F8F7F4]/50">
+              本次错题数
+            </div>
+            <div className="mt-1.5 font-mono text-2xl font-semibold text-red-300 tabular-nums">
               {mockReport.wrongQuestionIds.length} 题
             </div>
           </div>
         </div>
 
-        {/* Review all questions with official answers & explanations */}
         <div className="space-y-4">
-          <h2 className="text-base font-semibold text-slate-900">
+          <h2 className="text-base font-semibold text-[#F8F7F4]">
             逐题解析与评分标准复盘（错题已自动同步至错题频率统计）
           </h2>
           {questions.map((q, idx) => {
             const ans = answers[q.id] ?? {};
             const isWrong = mockReport.wrongQuestionIds.includes(q.id);
             return (
-              <div key={q.id} className="rounded-xl border border-slate-200 bg-white p-5">
+              <div key={q.id} className="rounded-xl border border-white/10 bg-[#18181A] p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="font-mono font-semibold text-slate-800">
+                  <span className="font-mono font-semibold text-[#F8F7F4]">
                     第 {idx + 1} 题 · {q.paperCode} ·{' '}
                     {q.chapters.map((c) => getChapterById(c)?.code ?? `Ch ${c}`).join(' + ')}
                   </span>
                   <span
                     className={`inline-flex items-center gap-1 font-medium ${
-                      isWrong ? 'text-red-700' : 'text-emerald-700'
+                      isWrong ? 'text-red-300' : 'text-emerald-300'
                     }`}
                   >
                     {isWrong ? (
@@ -414,12 +418,12 @@ export function QuizWorkspace({
                   </span>
                 </div>
                 {!(q.clippedImageUrls && q.clippedImageUrls.length > 0) && (
-                  <p className="mt-2 text-sm text-slate-900">
+                  <p className="mt-2 text-sm text-[#F8F7F4]">
                     <ChemText text={q.promptEn} />
                   </p>
                 )}
                 {showChinese && q.promptZh && (
-                  <p className="mt-1.5 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                  <p className="mt-1.5 rounded-lg border border-white/10 bg-[#141416] px-3 py-2 text-xs text-[#F8F7F4]/80">
                     <ChemText text={q.promptZh} />
                   </p>
                 )}
@@ -449,12 +453,12 @@ export function QuizWorkspace({
                   />
                 )}
                 {q.type === 'mcq' && (
-                  <p className="mt-2 font-mono text-xs text-slate-600">
+                  <p className="mt-2 font-mono text-xs text-[#F8F7F4]/70">
                     你的选择：{ans.selectedOption ?? '未选'} · 正确答案：{q.correctOption}
                   </p>
                 )}
                 {q.type === 'structured' && q.markSchemePoints && !q.msImageUrls?.length && (
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-700">
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-[#F8F7F4]/75">
                     {q.markSchemePoints.map((pt, i) => (
                       <li key={i}>
                         <ChemText text={pt} />
@@ -481,11 +485,11 @@ export function QuizWorkspace({
                     caption="Official Mark Scheme 原卷评分标准截图"
                   />
                 )}
-                <p className="mt-2.5 border-t border-slate-100 pt-2.5 text-xs leading-relaxed text-slate-600">
+                <p className="mt-2.5 border-t border-white/[0.06] pt-2.5 text-xs leading-relaxed text-[#F8F7F4]/65">
                   Examiner Note: <ChemText text={q.explanationEn} />
                 </p>
                 {showChinese && q.explanationZh && (
-                  <p className="mt-1 text-xs leading-relaxed text-slate-700">
+                  <p className="mt-1 text-xs leading-relaxed text-[#F8F7F4]/75">
                     中文精析：<ChemText text={q.explanationZh} />
                   </p>
                 )}
@@ -501,28 +505,28 @@ export function QuizWorkspace({
 
   return (
     <div className="space-y-6">
-      {/* Focused Quiz Top Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-4">
         <div className="flex items-center gap-3">
           <button
             onClick={onExit}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#18181A] px-3 py-1.5 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458]/50 hover:text-[#E0A458] whitespace-nowrap shrink-0"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             退出
           </button>
           <div>
-            <h1 className="text-base font-semibold text-slate-900">{session.title}</h1>
-            <p className="text-xs text-slate-500">{session.subtitle}</p>
+            <h1 className="text-base font-semibold text-[#F8F7F4]">{session.title}</h1>
+            <p className="text-xs text-[#F8F7F4]/55">{session.subtitle}</p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {onRollbackCurrentSession && sessionAttemptCount > 0 && (
-            !confirmRollback ? (
+          {onRollbackCurrentSession &&
+            sessionAttemptCount > 0 &&
+            (!confirmRollback ? (
               <button
                 onClick={() => setConfirmRollback(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100 whitespace-nowrap shrink-0"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#E0A458]/35 bg-[#E0A458]/10 px-3 py-1.5 text-xs font-medium text-[#E0A458] hover:bg-[#E0A458]/20 whitespace-nowrap shrink-0"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 回退本次记录 ({sessionAttemptCount})
@@ -531,30 +535,29 @@ export function QuizWorkspace({
               <div className="inline-flex items-center gap-1.5">
                 <button
                   onClick={handleExecuteRollback}
-                  className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 whitespace-nowrap"
+                  className="rounded-lg bg-[#E0A458] px-3 py-1.5 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E] whitespace-nowrap"
                 >
                   确认回退本次记录
                 </button>
                 <button
                   onClick={() => setConfirmRollback(false)}
-                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-600 whitespace-nowrap"
+                  className="rounded-lg border border-white/15 bg-[#18181A] px-2.5 py-1.5 text-xs text-[#F8F7F4]/70 whitespace-nowrap"
                 >
                   取消
                 </button>
               </div>
-            )
-          )}
+            ))}
 
           <button
             onClick={() => setShowChinese((v) => !v)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap shrink-0"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#18181A] px-3 py-1.5 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458]/50 hover:text-[#E0A458] whitespace-nowrap shrink-0"
           >
             <Languages className="h-3.5 w-3.5" />
             {showChinese ? '隐藏中文翻译' : '显示中文翻译'}
           </button>
 
-          <div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs font-semibold text-slate-800 tabular-nums">
-            <Clock className="h-3.5 w-3.5 text-slate-500" />
+          <div className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#18181A] px-3 py-1.5 font-mono text-xs font-semibold text-[#E0A458] tabular-nums">
+            <Clock className="h-3.5 w-3.5 text-[#E0A458]/80" />
             {session.mode === 'mock'
               ? `剩余 ${formatTimer(secondsLeft)}`
               : formatTimer(elapsedSeconds)}
@@ -563,7 +566,7 @@ export function QuizWorkspace({
           {session.mode === 'mock' && (
             <button
               onClick={handleSubmitMock}
-              className="rounded-lg bg-[#1D4ED8] px-4 py-1.5 text-xs font-medium text-white hover:bg-[#1E40AF] whitespace-nowrap shrink-0"
+              className="rounded-lg bg-[#E0A458] px-4 py-1.5 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E] whitespace-nowrap shrink-0"
             >
               交卷并评分
             </button>
@@ -572,24 +575,22 @@ export function QuizWorkspace({
       </div>
 
       {rolledBackNotice && (
-        <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs text-emerald-900">
+        <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs text-emerald-300">
           <span>已无损回退本次练习记录，题库错题统计与正确率已还原至练习前状态。</span>
           <button
             onClick={() => setRolledBackNotice(false)}
-            className="font-medium text-emerald-800 hover:underline"
+            className="font-medium text-emerald-200 hover:underline"
           >
             知道了
           </button>
         </div>
       )}
 
-      {/* Main Split: Question Stage (Left) + Navigator Rail (Right) */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <div className="rounded-xl border border-slate-200 bg-white p-6 lg:col-span-9">
-          {/* Unboxed Metadata Line */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 text-xs text-slate-500">
+        <div className="rounded-xl border border-white/10 bg-[#18181A] p-6 lg:col-span-9">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] pb-3 text-xs text-[#F8F7F4]/55">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono font-semibold text-slate-900">
+              <span className="font-mono font-semibold text-[#F8F7F4]">
                 第 {currentIndex + 1} / {questions.length} 题
               </span>
               <span aria-hidden="true">·</span>
@@ -598,15 +599,17 @@ export function QuizWorkspace({
                 {currentQ.subPart ?? ''}
               </span>
               <span aria-hidden="true">·</span>
-              <span className="font-mono tabular-nums">{currentQ.marks} mark{currentQ.marks > 1 ? 's' : ''}</span>
+              <span className="font-mono tabular-nums">
+                {currentQ.marks} mark{currentQ.marks > 1 ? 's' : ''}
+              </span>
               <span aria-hidden="true">·</span>
-              <span className="font-mono text-[#1D4ED8]">
+              <span className="font-mono text-[#E0A458]">
                 {currentQ.chapters.map((id) => getChapterById(id)?.code ?? `Ch ${id}`).join(' + ')}
               </span>
               {modObj && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span>{modObj.code}</span>
+                  <span className="font-mono">{modObj.code}</span>
                 </>
               )}
             </div>
@@ -615,8 +618,10 @@ export function QuizWorkspace({
               onClick={() =>
                 setFlagged((prev) => ({ ...prev, [currentQ.id]: !prev[currentQ.id] }))
               }
-              className={`inline-flex items-center gap-1 text-xs font-medium ${
-                flagged[currentQ.id] ? 'text-amber-700' : 'text-slate-400 hover:text-slate-700'
+              className={`inline-flex items-center gap-1 text-xs font-medium transition-colors ${
+                flagged[currentQ.id]
+                  ? 'text-[#E0A458]'
+                  : 'text-[#F8F7F4]/45 hover:text-[#F8F7F4]'
               }`}
             >
               <Flag className="h-3.5 w-3.5" />
@@ -624,15 +629,14 @@ export function QuizWorkspace({
             </button>
           </div>
 
-          {/* Question Stem & Clipped Exam Screenshot */}
           <div className="mt-4 space-y-3">
             {!(currentQ.clippedImageUrls && currentQ.clippedImageUrls.length > 0) && (
-              <p className="whitespace-pre-line text-base leading-relaxed text-slate-900">
+              <p className="whitespace-pre-line text-base leading-relaxed text-[#F8F7F4]">
                 <ChemText text={currentQ.promptEn} />
               </p>
             )}
             {showChinese && currentQ.promptZh && (
-              <p className="whitespace-pre-line rounded-lg bg-slate-50 px-4 py-3 text-sm leading-relaxed text-slate-700">
+              <p className="whitespace-pre-line rounded-lg border border-white/10 bg-[#141416] px-4 py-3 text-sm leading-relaxed text-[#F8F7F4]/80">
                 <ChemText text={currentQ.promptZh} />
               </p>
             )}
@@ -655,7 +659,9 @@ export function QuizWorkspace({
             <ClippedQuestionImage
               imageId={currentQ.clippedImageId}
               alt={`${currentQ.paperCode} Q${currentQ.questionNumber}`}
-              caption={currentQ.diagramCaption ?? `${currentQ.paperCode} Q${currentQ.questionNumber} 原卷截图`}
+              caption={
+                currentQ.diagramCaption ?? `${currentQ.paperCode} Q${currentQ.questionNumber} 原卷截图`
+              }
             />
           )}
 
@@ -667,12 +673,11 @@ export function QuizWorkspace({
             />
           )}
 
-          {/* Answer Interaction Area */}
           {currentQ.type === 'mcq' && currentQ.options ? (
             currentQ.clippedImageUrls?.length &&
             currentQ.options.every((o) => o.text.includes('见原卷截图')) ? (
               <div className="mt-5">
-                <div className="mb-2 text-xs font-medium text-slate-500">
+                <div className="mb-2 text-xs font-medium text-[#F8F7F4]/55">
                   请对照原卷截图选择答案：
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -683,15 +688,15 @@ export function QuizWorkspace({
                     const isCorrectOpt = currentQ.correctOption === opt.label;
 
                     let btnClass =
-                      'border-slate-200 bg-white hover:border-[#1D4ED8] text-slate-900';
+                      'border-white/12 bg-[#141416] hover:border-[#E0A458]/60 text-[#F8F7F4]';
                     if (isRevealed) {
                       if (isCorrectOpt) {
-                        btnClass = 'border-emerald-500 bg-emerald-50 text-emerald-950';
+                        btnClass = 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200';
                       } else if (isSelected && !isCorrectOpt) {
-                        btnClass = 'border-red-500 bg-red-50 text-red-950';
+                        btnClass = 'border-red-500/60 bg-red-500/15 text-red-200';
                       }
                     } else if (isSelected) {
-                      btnClass = 'border-[#1D4ED8] bg-blue-50/70 text-[#1E40AF]';
+                      btnClass = 'border-[#E0A458] bg-[#E0A458]/15 text-[#E0A458]';
                     }
 
                     return (
@@ -702,10 +707,10 @@ export function QuizWorkspace({
                       >
                         <span>{opt.label}</span>
                         {isRevealed && isCorrectOpt && (
-                          <span className="text-xs font-medium text-emerald-700">✓ 正确</span>
+                          <span className="text-xs font-medium text-emerald-300">✓ 正确</span>
                         )}
                         {isRevealed && isSelected && !isCorrectOpt && (
-                          <span className="text-xs font-medium text-red-700">✗ 误选</span>
+                          <span className="text-xs font-medium text-red-300">✗ 误选</span>
                         )}
                       </button>
                     );
@@ -721,15 +726,15 @@ export function QuizWorkspace({
                   const isCorrectOpt = currentQ.correctOption === opt.label;
 
                   let btnClass =
-                    'border-slate-200 bg-white hover:border-slate-400 text-slate-900';
+                    'border-white/12 bg-[#141416] hover:border-[#E0A458]/50 text-[#F8F7F4]';
                   if (isRevealed) {
                     if (isCorrectOpt) {
-                      btnClass = 'border-emerald-500 bg-emerald-50 text-emerald-950';
+                      btnClass = 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200';
                     } else if (isSelected && !isCorrectOpt) {
-                      btnClass = 'border-red-500 bg-red-50 text-red-950';
+                      btnClass = 'border-red-500/60 bg-red-500/15 text-red-200';
                     }
                   } else if (isSelected) {
-                    btnClass = 'border-[#1D4ED8] bg-blue-50/70 text-[#1E40AF]';
+                    btnClass = 'border-[#E0A458] bg-[#E0A458]/15 text-[#E0A458]';
                   }
 
                   return (
@@ -738,17 +743,17 @@ export function QuizWorkspace({
                       onClick={() => handleSelectMcq(opt.label)}
                       className={`flex w-full items-center gap-3.5 rounded-xl border px-4 py-3 text-left text-sm transition-colors ${btnClass}`}
                     >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-current/20 font-mono text-xs font-semibold">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-current/25 font-mono text-xs font-semibold">
                         {opt.label}
                       </span>
                       <span className="flex-1">
                         <ChemText text={opt.text} />
                       </span>
                       {isRevealed && isCorrectOpt && (
-                        <span className="text-xs font-semibold text-emerald-700">正确</span>
+                        <span className="text-xs font-semibold text-emerald-300">正确</span>
                       )}
                       {isRevealed && isSelected && !isCorrectOpt && (
-                        <span className="text-xs font-semibold text-red-700">误选</span>
+                        <span className="text-xs font-semibold text-red-300">误选</span>
                       )}
                     </button>
                   );
@@ -758,7 +763,7 @@ export function QuizWorkspace({
           ) : (
             <div className="mt-6 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700">
+                <label className="block text-xs font-medium text-[#F8F7F4]/70">
                   作答区（支持输入反应方程式、计算过程与关键词）
                 </label>
                 <textarea
@@ -768,7 +773,7 @@ export function QuizWorkspace({
                     updateAnswer(currentQ.id, { writtenText: e.target.value })
                   }
                   placeholder="在此输入你的解题步骤与结论..."
-                  className="mt-1.5 w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm text-slate-900 focus:border-[#1D4ED8] focus:outline-none"
+                  className="mt-1.5 w-full rounded-xl border border-white/15 bg-[#111113] px-3.5 py-2.5 text-sm text-[#F8F7F4] placeholder:text-[#F8F7F4]/35 focus:border-[#E0A458] focus:outline-none"
                 />
               </div>
 
@@ -777,12 +782,12 @@ export function QuizWorkspace({
                   <button
                     onClick={handleAiGradeStructured}
                     disabled={!currentAns.writtenText?.trim() || gradingAi}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-800 hover:border-[#1D4ED8] hover:text-[#1D4ED8] disabled:opacity-40 whitespace-nowrap shrink-0"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#141416] px-3.5 py-2 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458] hover:text-[#E0A458] disabled:opacity-35 whitespace-nowrap shrink-0"
                   >
                     {gradingAi ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
-                      <Sparkles className="h-3.5 w-3.5 text-[#1D4ED8]" />
+                      <Sparkles className="h-3.5 w-3.5 text-[#E0A458]" />
                     )}
                     AI 按评分标准批改
                   </button>
@@ -790,7 +795,7 @@ export function QuizWorkspace({
                   {!currentAns.msRevealed && !currentAns.submittedInPractice && (
                     <button
                       onClick={handleRevealStructuredMs}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#1D4ED8] px-4 py-2 text-xs font-medium text-white hover:bg-[#1E40AF] whitespace-nowrap shrink-0"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#E0A458] px-4 py-2 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E] whitespace-nowrap shrink-0"
                     >
                       查看官方答案 (MS) 并自评得分
                     </button>
@@ -799,8 +804,8 @@ export function QuizWorkspace({
               )}
 
               {currentAns.aiGrade && (
-                <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 text-xs text-slate-800">
-                  <div className="font-mono font-semibold text-[#1D4ED8]">
+                <div className="rounded-xl border border-[#E0A458]/30 bg-[#E0A458]/10 p-4 text-xs text-[#F8F7F4]/85">
+                  <div className="font-mono font-semibold text-[#E0A458]">
                     AI 建议得分：{currentAns.aiGrade.awardedMarks} / {currentQ.marks} 分
                   </div>
                   <p className="mt-1 leading-relaxed">{currentAns.aiGrade.feedbackZh}</p>
@@ -809,16 +814,15 @@ export function QuizWorkspace({
             </div>
           )}
 
-          {/* Structured Mark Scheme Reveal + Self-Grading Panel (Practice Mode) */}
           {session.mode === 'practice' &&
             currentQ.type === 'structured' &&
             (currentAns.msRevealed || currentAns.submittedInPractice) && (
-              <div className="mt-6 space-y-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4 sm:p-5">
+              <div className="mt-6 space-y-4 rounded-xl border border-white/10 bg-[#141416] p-4 sm:p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm font-semibold text-slate-900">
+                  <div className="text-sm font-semibold text-[#F8F7F4]">
                     Official Mark Scheme 官方评分标准
                   </div>
-                  <span className="font-mono text-xs text-slate-500">
+                  <span className="font-mono text-xs text-[#E0A458]">
                     本题满分 {currentQ.marks} 分
                   </span>
                 </div>
@@ -843,9 +847,9 @@ export function QuizWorkspace({
                   />
                 )}
 
-                {(!currentQ.msImageUrls?.length && currentQ.markSchemePoints?.length) ? (
-                  <div className="rounded-lg border border-slate-200 bg-white p-3.5">
-                    <div className="text-xs font-semibold text-slate-800">
+                {!currentQ.msImageUrls?.length && currentQ.markSchemePoints?.length ? (
+                  <div className="rounded-lg border border-white/10 bg-[#18181A] p-3.5">
+                    <div className="text-xs font-semibold text-[#F8F7F4]/90">
                       得分点核对（勾选后可自动计算建议得分）：
                     </div>
                     <div className="mt-2 space-y-2">
@@ -854,14 +858,14 @@ export function QuizWorkspace({
                         return (
                           <label
                             key={idx}
-                            className="flex cursor-pointer items-start gap-2.5 text-xs text-slate-800"
+                            className="flex cursor-pointer items-start gap-2.5 text-xs text-[#F8F7F4]/80"
                           >
                             <input
                               type="checkbox"
                               checked={checked}
                               disabled={currentAns.submittedInPractice}
                               onChange={() => handleToggleMarkPoint(idx)}
-                              className="mt-0.5 rounded border-slate-300"
+                              className="mt-0.5 accent-[#E0A458]"
                             />
                             <span>
                               <ChemText text={pt} />
@@ -874,27 +878,26 @@ export function QuizWorkspace({
                 ) : null}
 
                 {currentQ.modelAnswer && (
-                  <p className="text-xs font-medium text-slate-800">
+                  <p className="text-xs font-medium text-[#F8F7F4]/90">
                     Model Answer: <ChemText text={currentQ.modelAnswer} />
                   </p>
                 )}
-                <p className="text-xs leading-relaxed text-slate-600">
+                <p className="text-xs leading-relaxed text-[#F8F7F4]/65">
                   Examiner Note: <ChemText text={currentQ.explanationEn} />
                 </p>
                 {showChinese && currentQ.explanationZh && (
-                  <p className="rounded-lg bg-white px-3 py-2 text-xs leading-relaxed text-slate-700">
+                  <p className="rounded-lg border border-white/10 bg-[#18181A] px-3 py-2 text-xs leading-relaxed text-[#F8F7F4]/80">
                     中文精析：<ChemText text={currentQ.explanationZh} />
                   </p>
                 )}
 
-                {/* Self-Score Picker Before Confirming */}
                 {!currentAns.submittedInPractice ? (
-                  <div className="rounded-xl border border-blue-200 bg-white p-4">
+                  <div className="rounded-xl border border-[#E0A458]/35 bg-[#18181A] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-xs font-semibold text-slate-900">
+                      <div className="text-xs font-semibold text-[#F8F7F4]">
                         请对照上方 Mark Scheme 自行批改本题得分：
                       </div>
-                      <span className="font-mono text-xs text-[#1D4ED8]">
+                      <span className="font-mono text-xs text-[#E0A458]">
                         {currentAns.selfScore !== undefined
                           ? `已选 ${currentAns.selfScore} / ${currentQ.marks} 分`
                           : '尚未选择得分'}
@@ -912,8 +915,8 @@ export function QuizWorkspace({
                               onClick={() => updateAnswer(currentQ.id, { selfScore: s })}
                               className={`rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold transition-colors ${
                                 selected
-                                  ? 'border-[#1D4ED8] bg-[#1D4ED8] text-white'
-                                  : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-[#1D4ED8] hover:text-[#1D4ED8]'
+                                  ? 'border-[#E0A458] bg-[#E0A458] text-[#111113]'
+                                  : 'border-white/12 bg-[#141416] text-[#F8F7F4]/85 hover:border-[#E0A458] hover:text-[#E0A458]'
                               }`}
                             >
                               {s} 分{s === currentQ.marks ? '（满分）' : s === 0 ? '（全错）' : ''}
@@ -929,8 +932,8 @@ export function QuizWorkspace({
                               onClick={() => updateAnswer(currentQ.id, { selfScore: s })}
                               className={`rounded-lg border px-3 py-1.5 font-mono text-xs font-semibold ${
                                 currentAns.selfScore === s
-                                  ? 'border-[#1D4ED8] bg-[#1D4ED8] text-white'
-                                  : 'border-slate-200 bg-slate-50 text-slate-800'
+                                  ? 'border-[#E0A458] bg-[#E0A458] text-[#111113]'
+                                  : 'border-white/12 bg-[#141416] text-[#F8F7F4]/85'
                               }`}
                             >
                               {s} 分
@@ -943,22 +946,25 @@ export function QuizWorkspace({
                             value={currentAns.selfScore ?? ''}
                             onChange={(e) =>
                               updateAnswer(currentQ.id, {
-                                selfScore: Math.max(0, Math.min(currentQ.marks, Number(e.target.value) || 0)),
+                                selfScore: Math.max(
+                                  0,
+                                  Math.min(currentQ.marks, Number(e.target.value) || 0)
+                                ),
                               })
                             }
                             placeholder="输入分数"
-                            className="w-24 rounded-lg border border-slate-300 px-2.5 py-1.5 font-mono text-xs"
+                            className="w-24 rounded-lg border border-white/15 bg-[#111113] px-2.5 py-1.5 font-mono text-xs text-[#F8F7F4]"
                           />
                         </div>
                       )}
                     </div>
 
-                    <div className="mt-3.5 flex flex-wrap items-center gap-2.5 border-t border-slate-100 pt-3">
+                    <div className="mt-3.5 flex flex-wrap items-center gap-2.5 border-t border-white/[0.06] pt-3">
                       <button
                         type="button"
                         onClick={() => handleConfirmSelfScore()}
                         disabled={currentAns.selfScore === undefined}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white hover:bg-slate-800 disabled:opacity-40 whitespace-nowrap"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#E0A458] px-4 py-2 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E] disabled:opacity-35 whitespace-nowrap"
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" />
                         {currentAns.selfScore !== undefined
@@ -968,14 +974,14 @@ export function QuizWorkspace({
                       <button
                         type="button"
                         onClick={() => handleConfirmSelfScore(currentQ.marks)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-medium text-emerald-900 hover:bg-emerald-100 whitespace-nowrap"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3.5 py-2 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 whitespace-nowrap"
                       >
                         全部写对 · 记满分 ({currentQ.marks}分)
                       </button>
                       <button
                         type="button"
                         onClick={() => handleConfirmSelfScore(0)}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-medium text-red-800 hover:bg-red-100 whitespace-nowrap"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/35 bg-red-500/10 px-3.5 py-2 text-xs font-medium text-red-300 hover:bg-red-500/20 whitespace-nowrap"
                       >
                         未做对 · 记 0 分
                       </button>
@@ -985,23 +991,23 @@ export function QuizWorkspace({
                   <div
                     className={`rounded-xl border p-3.5 ${
                       currentAns.isCorrect
-                        ? 'border-emerald-200 bg-emerald-50'
-                        : 'border-amber-200 bg-amber-50'
+                        ? 'border-emerald-500/30 bg-emerald-500/10'
+                        : 'border-[#E0A458]/35 bg-[#E0A458]/10'
                     }`}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
                       <span className="inline-flex items-center gap-1.5">
                         {currentAns.isCorrect ? (
                           <>
-                            <CheckCircle2 className="h-4 w-4 text-emerald-700" />
-                            <span className="text-emerald-900">
+                            <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                            <span className="text-emerald-200">
                               自评得分 {currentAns.earnedMarks ?? 0} / {currentQ.marks} 分 · 作答达标，已更新掌握记录
                             </span>
                           </>
                         ) : (
                           <>
-                            <XCircle className="h-4 w-4 text-amber-700" />
-                            <span className="text-amber-900">
+                            <XCircle className="h-4 w-4 text-[#E0A458]" />
+                            <span className="text-[#E0A458]">
                               自评得分 {currentAns.earnedMarks ?? 0} / {currentQ.marks} 分 · 需巩固（
                               {currentQ.chapters
                                 .map((id) => getChapterById(id)?.code ?? `Ch ${id}`)
@@ -1017,27 +1023,26 @@ export function QuizWorkspace({
               </div>
             )}
 
-          {/* Practice Mode Explanation Reveal (MCQ Only) */}
           {session.mode === 'practice' &&
             currentQ.type === 'mcq' &&
             currentAns.submittedInPractice && (
               <div
                 className={`mt-6 rounded-xl border p-4 ${
                   currentAns.isCorrect
-                    ? 'border-emerald-200 bg-emerald-50/60'
-                    : 'border-red-200 bg-red-50/60'
+                    ? 'border-emerald-500/30 bg-emerald-500/10'
+                    : 'border-red-500/30 bg-red-500/10'
                 }`}
               >
                 <div className="flex items-center gap-2 text-sm font-semibold">
                   {currentAns.isCorrect ? (
                     <>
-                      <CheckCircle2 className="h-4 w-4 text-emerald-700" />
-                      <span className="text-emerald-900">作答达标 · 已更新章节掌握记录</span>
+                      <CheckCircle2 className="h-4 w-4 text-emerald-300" />
+                      <span className="text-emerald-200">作答达标 · 已更新章节掌握记录</span>
                     </>
                   ) : (
                     <>
-                      <XCircle className="h-4 w-4 text-red-700" />
-                      <span className="text-red-900">
+                      <XCircle className="h-4 w-4 text-red-300" />
+                      <span className="text-red-200">
                         未达标 · 已自动计入错题频率（
                         {currentQ.chapters
                           .map((id) => getChapterById(id)?.code ?? `Ch ${id}`)
@@ -1067,27 +1072,26 @@ export function QuizWorkspace({
                   />
                 )}
                 {currentQ.modelAnswer && (
-                  <p className="mt-2 text-xs font-medium text-slate-800">
+                  <p className="mt-2 text-xs font-medium text-[#F8F7F4]/90">
                     Model Answer: <ChemText text={currentQ.modelAnswer} />
                   </p>
                 )}
-                <p className="mt-2 text-xs leading-relaxed text-slate-700">
+                <p className="mt-2 text-xs leading-relaxed text-[#F8F7F4]/75">
                   Examiner Note: <ChemText text={currentQ.explanationEn} />
                 </p>
                 {showChinese && currentQ.explanationZh && (
-                  <p className="mt-1.5 rounded-lg bg-white/80 px-3 py-2 text-xs leading-relaxed text-slate-700">
+                  <p className="mt-1.5 rounded-lg border border-white/10 bg-[#141416] px-3 py-2 text-xs leading-relaxed text-[#F8F7F4]/80">
                     中文精析：<ChemText text={currentQ.explanationZh} />
                   </p>
                 )}
               </div>
             )}
 
-          {/* Bottom Prev / Next Controls */}
-          <div className="mt-8 flex items-center justify-between border-t border-slate-100 pt-4">
+          <div className="mt-8 flex items-center justify-between border-t border-white/[0.06] pt-4">
             <button
               onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
               disabled={currentIndex === 0}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-[#141416] px-3.5 py-2 text-xs font-medium text-[#F8F7F4]/80 hover:border-white/30 disabled:opacity-35"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
               上一题
@@ -1101,7 +1105,7 @@ export function QuizWorkspace({
                     ? handleSubmitMock()
                     : onExit()
               }
-              className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-4 py-2 text-xs font-medium text-white hover:bg-slate-800"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#E0A458] px-4 py-2 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E]"
             >
               {currentIndex < questions.length - 1
                 ? '下一题'
@@ -1113,9 +1117,10 @@ export function QuizWorkspace({
           </div>
         </div>
 
-        {/* Right Question Navigator Rail */}
-        <aside className="rounded-xl border border-slate-200 bg-white p-5 lg:col-span-3">
-          <div className="text-xs font-semibold text-slate-800">答题进度导航</div>
+        <aside className="rounded-xl border border-white/10 bg-[#18181A] p-5 lg:col-span-3">
+          <div className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-[#F8F7F4]/75">
+            答题进度导航
+          </div>
           <div className="mt-3 grid grid-cols-5 gap-2">
             {questions.map((q, idx) => {
               const ans = answers[q.id];
@@ -1128,16 +1133,16 @@ export function QuizWorkspace({
                   ans?.submittedInPractice
               );
 
-              let cellStyle = 'border-slate-200 bg-white text-slate-700';
+              let cellStyle = 'border-white/12 bg-[#141416] text-[#F8F7F4]/75';
               if (session.mode === 'practice' && ans?.submittedInPractice) {
                 cellStyle = ans.isCorrect
-                  ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
-                  : 'border-red-300 bg-red-50 text-red-800';
+                  ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                  : 'border-red-500/40 bg-red-500/15 text-red-300';
               } else if (hasAnswer) {
-                cellStyle = 'border-blue-300 bg-blue-50 text-[#1E40AF]';
+                cellStyle = 'border-[#E0A458]/40 bg-[#E0A458]/15 text-[#E0A458]';
               }
               if (isCurrent) {
-                cellStyle += ' ring-2 ring-[#1D4ED8] ring-offset-1';
+                cellStyle += ' ring-2 ring-[#E0A458] ring-offset-2 ring-offset-[#18181A]';
               }
 
               return (
@@ -1148,14 +1153,16 @@ export function QuizWorkspace({
                 >
                   {idx + 1}
                   {isFlagged && (
-                    <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-500" />
+                    <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#E0A458]" />
                   )}
                 </button>
               );
             })}
           </div>
-          <div className="mt-4 space-y-1.5 border-t border-slate-100 pt-3 text-xs text-slate-500">
-            <div>共 {questions.length} 题 · 总分 {questions.reduce((a, b) => a + b.marks, 0)} 分</div>
+          <div className="mt-4 space-y-1.5 border-t border-white/[0.06] pt-3 text-xs text-[#F8F7F4]/55">
+            <div className="font-mono tabular-nums">
+              共 {questions.length} 题 · 总分 {questions.reduce((a, b) => a + b.marks, 0)} 分
+            </div>
             <div>涉及 2 个以上章节的题目已标注所属 Module</div>
           </div>
         </aside>

@@ -137,18 +137,27 @@ function groupRows(items: TextItem[]): TextRow[] {
 }
 
 async function ensureRenderedPdf(pdfPath: string): Promise<string[]> {
-  const stem = path.basename(pdfPath, '.pdf');
-  const outDir = path.join(RENDER_CACHE_DIR, stem);
-  fs.mkdirSync(outDir, { recursive: true });
-  const existing = fs.readdirSync(outDir).filter((f) => f.endsWith('.png')).sort();
-  if (existing.length > 0) {
-    return existing.map((f) => path.join(outDir, f));
-  }
   const active = inFlightPdfRenders.get(pdfPath);
   if (active) return active;
 
+  const stem = path.basename(pdfPath, '.pdf');
+  const outDir = path.join(RENDER_CACHE_DIR, stem);
+  const doneMarker = path.join(outDir, '.done');
+  fs.mkdirSync(outDir, { recursive: true });
+  if (fs.existsSync(doneMarker)) {
+    const existing = fs.readdirSync(outDir).filter((f) => f.endsWith('.png')).sort();
+    if (existing.length > 0) {
+      return existing.map((f) => path.join(outDir, f));
+    }
+  }
+
   const job = (async () => {
     ensureFontmap();
+    for (const f of fs.readdirSync(outDir)) {
+      if (f.endsWith('.png') || f === '.done') {
+        fs.rmSync(path.join(outDir, f), { force: true });
+      }
+    }
     await execFileAsync('gs', [
       '-I/tmp',
       '-q',
@@ -159,6 +168,7 @@ async function ensureRenderedPdf(pdfPath: string): Promise<string[]> {
       `-sOutputFile=${outDir}/page_%03d.png`,
       pdfPath,
     ]);
+    fs.writeFileSync(doneMarker, 'ok');
     return fs
       .readdirSync(outDir)
       .filter((f) => f.endsWith('.png'))

@@ -58,7 +58,6 @@ export function PaperDownloaderView({
     text: string;
   } | null>(null);
 
-  // Local PDF upload state
   const [uploadCode, setUploadCode] = useState('9701/22/M/J/24');
   const [uploadYear, setUploadYear] = useState(2024);
   const [uploadSession, setUploadSession] = useState<ExamSession>('M/J');
@@ -236,15 +235,15 @@ export function PaperDownloaderView({
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-5 sm:flex-row sm:items-end">
+      <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-xs font-medium tracking-wide text-slate-500">
-            2021–2026 CAIE 9701 PAST PAPER DOWNLOADER &amp; PARSER
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#F8F7F4]/50">
+            MODULE 02 · 2021–2026 CAIE 9701 PAST PAPER DOWNLOADER &amp; PARSER
           </p>
-          <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-900">
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[#F8F7F4]">
             网页端 A-Level 真题下载与截图切题中心
           </h1>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1.5 text-sm text-[#F8F7F4]/65">
             支持直连抓取 2021–2026 年真题 PDF 链接、AI 自动框选 + 手动截图切题（保留真实图表画面），或上传本地 QP/MS PDF 自动划分为 30 章节与模块练习。
           </p>
         </div>
@@ -252,7 +251,7 @@ export function PaperDownloaderView({
         <button
           type="button"
           onClick={() => setClipperTarget('blank')}
-          className="inline-flex items-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2.5 text-xs font-medium text-white transition-colors hover:bg-[#1E40AF] whitespace-nowrap shrink-0"
+          className="inline-flex items-center gap-2 rounded-lg bg-[#E0A458] px-4 py-2.5 text-xs font-semibold text-[#111113] transition-colors hover:bg-[#EBB66E] whitespace-nowrap shrink-0"
         >
           <Scissors className="h-4 w-4" />
           打开 PDF 截图切题工作室
@@ -263,8 +262,8 @@ export function PaperDownloaderView({
         <div
           className={`flex items-start gap-3 rounded-xl border px-4 py-3 text-sm ${
             statusMessage.type === 'success'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-              : 'border-red-200 bg-red-50 text-red-900'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+              : 'border-red-500/30 bg-red-500/10 text-red-300'
           }`}
         >
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
@@ -272,23 +271,22 @@ export function PaperDownloaderView({
         </div>
       )}
 
-      {/* Two-Column Top Input: Direct PDF URL Fetch + Local PDF Upload */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <form
           onSubmit={handleCustomUrlDownload}
-          className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-6"
+          className="flex flex-col justify-between rounded-xl border border-white/10 bg-[#18181A] p-6"
         >
           <div>
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <Globe className="h-4 w-4 text-[#1D4ED8]" />
+            <div className="flex items-center gap-2 text-sm font-semibold text-[#F8F7F4]">
+              <Globe className="h-4 w-4 text-[#E0A458]" />
               方式一：输入真题网页 PDF 直链下载并解析
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-[#F8F7F4]/55">
               粘贴 PapaCambridge、GCE Guide 或学校资源库的 9701 PDF 链接，服务端将拉取原卷并自动按 30 章节归类。
             </p>
             <div className="mt-4 space-y-3">
               <div>
-                <label className="block text-xs font-medium text-slate-700">
+                <label className="block text-xs font-medium text-[#F8F7F4]/70">
                   真题试卷编号 (Paper Code)
                 </label>
                 <input
@@ -296,11 +294,11 @@ export function PaperDownloaderView({
                   value={customPaperCode}
                   onChange={(e) => setCustomPaperCode(e.target.value)}
                   placeholder="例如 9701/12/M/J/25"
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm text-slate-900 focus:border-[#1D4ED8] focus:outline-none"
+                  className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-3 py-2 font-mono text-sm text-[#F8F7F4] placeholder:text-[#F8F7F4]/30 focus:border-[#E0A458] focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-700">
+                <label className="block text-xs font-medium text-[#F8F7F4]/70">
                   真题 PDF 网址 (URL)
                 </label>
                 <input
@@ -309,7 +307,7 @@ export function PaperDownloaderView({
                   value={customUrl}
                   onChange={(e) => setCustomUrl(e.target.value)}
                   placeholder="https://.../9701_s25_qp_12.pdf"
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-[#1D4ED8] focus:outline-none"
+                  className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-3 py-2 text-sm text-[#F8F7F4] placeholder:text-[#F8F7F4]/30 focus:border-[#E0A458] focus:outline-none"
                 />
               </div>
             </div>
@@ -319,7 +317,7 @@ export function PaperDownloaderView({
             <button
               type="submit"
               disabled={busyCode !== null}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#1E40AF] disabled:opacity-50 whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#E0A458] px-4 py-2 text-sm font-semibold text-[#111113] transition-colors hover:bg-[#EBB66E] disabled:opacity-45 whitespace-nowrap shrink-0"
             >
               {busyCode === customPaperCode ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -333,32 +331,32 @@ export function PaperDownloaderView({
 
         <form
           onSubmit={handleLocalPdfUpload}
-          className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-6"
+          className="flex flex-col justify-between rounded-xl border border-white/10 bg-[#18181A] p-6"
         >
           <div>
-            <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <FileUp className="h-4 w-4 text-[#1D4ED8]" />
+            <div className="flex items-center gap-2 text-sm font-semibold text-[#F8F7F4]">
+              <FileUp className="h-4 w-4 text-[#E0A458]" />
               方式二：导入本地真题 PDF（Question Paper + Mark Scheme）
             </div>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-[#F8F7F4]/55">
               若目标网站需要浏览器人机验证，可先下载 PDF 到本地再上传，系统自动提取题干与官方评分标准并归类章节。
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="col-span-2 sm:col-span-2">
-                <label className="block text-xs font-medium text-slate-700">试卷编号</label>
+                <label className="block text-xs font-medium text-[#F8F7F4]/70">试卷编号</label>
                 <input
                   type="text"
                   value={uploadCode}
                   onChange={(e) => setUploadCode(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 font-mono text-xs text-slate-900"
+                  className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-2.5 py-1.5 font-mono text-xs text-[#F8F7F4] focus:border-[#E0A458] focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-700">年份</label>
+                <label className="block text-xs font-medium text-[#F8F7F4]/70">年份</label>
                 <select
                   value={uploadYear}
                   onChange={(e) => setUploadYear(Number(e.target.value))}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs text-slate-900"
+                  className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-2 py-1.5 text-xs text-[#F8F7F4] focus:border-[#E0A458] focus:outline-none"
                 >
                   {[2026, 2025, 2024, 2023, 2022, 2021].map((y) => (
                     <option key={y} value={y}>
@@ -368,12 +366,12 @@ export function PaperDownloaderView({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-700">场次 / 卷别</label>
+                <label className="block text-xs font-medium text-[#F8F7F4]/70">场次 / 卷别</label>
                 <div className="mt-1 flex gap-1">
                   <select
                     value={uploadSession}
                     onChange={(e) => setUploadSession(e.target.value as ExamSession)}
-                    className="w-1/2 rounded-lg border border-slate-200 px-1 py-1.5 text-xs text-slate-900"
+                    className="w-1/2 rounded-lg border border-white/12 bg-[#111113] px-1 py-1.5 text-xs text-[#F8F7F4] focus:border-[#E0A458] focus:outline-none"
                   >
                     <option value="F/M">F/M</option>
                     <option value="M/J">M/J</option>
@@ -382,7 +380,7 @@ export function PaperDownloaderView({
                   <select
                     value={uploadPaperNum}
                     onChange={(e) => setUploadPaperNum(Number(e.target.value) as 1 | 2 | 4)}
-                    className="w-1/2 rounded-lg border border-slate-200 px-1 py-1.5 text-xs text-slate-900"
+                    className="w-1/2 rounded-lg border border-white/12 bg-[#111113] px-1 py-1.5 text-xs text-[#F8F7F4] focus:border-[#E0A458] focus:outline-none"
                   >
                     <option value={1}>P1</option>
                     <option value={2}>P2</option>
@@ -393,11 +391,11 @@ export function PaperDownloaderView({
             </div>
 
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="flex cursor-pointer flex-col rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2.5 text-xs hover:border-[#1D4ED8]">
-                <span className="font-medium text-slate-700">
+              <label className="flex cursor-pointer flex-col rounded-lg border border-dashed border-white/20 bg-[#111113] px-3 py-2.5 text-xs hover:border-[#E0A458]">
+                <span className="font-medium text-[#F8F7F4]/85">
                   {qpFile ? qpFile.name : '选择试题卷 (QP .pdf) *'}
                 </span>
-                <span className="mt-0.5 text-[11px] text-slate-400">必选，最大 20MB</span>
+                <span className="mt-0.5 text-[11px] text-[#F8F7F4]/40">必选，最大 20MB</span>
                 <input
                   type="file"
                   accept="application/pdf"
@@ -405,11 +403,11 @@ export function PaperDownloaderView({
                   onChange={(e) => setQpFile(e.target.files?.[0] ?? null)}
                 />
               </label>
-              <label className="flex cursor-pointer flex-col rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-2.5 text-xs hover:border-[#1D4ED8]">
-                <span className="font-medium text-slate-700">
+              <label className="flex cursor-pointer flex-col rounded-lg border border-dashed border-white/20 bg-[#111113] px-3 py-2.5 text-xs hover:border-[#E0A458]">
+                <span className="font-medium text-[#F8F7F4]/85">
                   {msFile ? msFile.name : '选择评分标准 (MS .pdf, 可选)'}
                 </span>
-                <span className="mt-0.5 text-[11px] text-slate-400">上传可提升答案精度</span>
+                <span className="mt-0.5 text-[11px] text-[#F8F7F4]/40">上传可提升答案精度</span>
                 <input
                   type="file"
                   accept="application/pdf"
@@ -424,7 +422,7 @@ export function PaperDownloaderView({
             <button
               type="submit"
               disabled={!qpFile || uploading}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:opacity-40 whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-[#242428] px-4 py-2 text-sm font-medium text-[#F8F7F4] transition-colors hover:border-[#E0A458] hover:text-[#E0A458] disabled:opacity-35 whitespace-nowrap shrink-0"
             >
               {uploading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -437,13 +435,12 @@ export function PaperDownloaderView({
         </form>
       </div>
 
-      {/* Downloaded & Parsed Papers Library */}
       {downloadedPapers.length > 0 && (
-        <section className="rounded-xl border border-slate-200 bg-white p-6">
-          <h2 className="text-base font-semibold text-slate-900">
+        <section className="rounded-xl border border-white/10 bg-[#18181A] p-6">
+          <h2 className="text-base font-semibold text-[#F8F7F4]">
             已下载并入库的真题试卷 ({downloadedPapers.length})
           </h2>
-          <div className="mt-4 divide-y divide-slate-100">
+          <div className="mt-4 divide-y divide-white/[0.06]">
             {downloadedPapers.map((p) => {
               const paperQuestions = customQuestions.filter((q) => q.paperCode === p.paperCode);
               return (
@@ -452,39 +449,39 @@ export function PaperDownloaderView({
                   className="flex flex-col justify-between gap-3 py-3.5 sm:flex-row sm:items-center"
                 >
                   <div>
-                    <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-900">
+                    <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[#F8F7F4]">
                       <span className="font-mono">{p.paperCode}</span>
-                      <span aria-hidden="true" className="text-slate-300">
+                      <span aria-hidden="true" className="text-[#F8F7F4]/25">
                         ·
                       </span>
-                      <span className="text-xs font-normal text-slate-500">
+                      <span className="text-xs font-normal text-[#F8F7F4]/55">
                         {p.sourceMethod === 'url-pdf'
                           ? '原卷 PDF 已抓取'
                           : p.sourceMethod === 'local-upload'
                             ? '本地 PDF 解析'
                             : '网页检索提取'}
                       </span>
-                      <span aria-hidden="true" className="text-slate-300">
+                      <span aria-hidden="true" className="text-[#F8F7F4]/25">
                         ·
                       </span>
-                      <span className="font-mono text-xs font-normal text-slate-500 tabular-nums">
+                      <span className="font-mono text-xs font-normal text-[#F8F7F4]/55 tabular-nums">
                         {p.questionCount} 道题
                       </span>
                     </div>
-                    {p.note && <p className="mt-1 text-xs text-slate-600">{p.note}</p>}
+                    {p.note && <p className="mt-1 text-xs text-[#F8F7F4]/60">{p.note}</p>}
                     {p.chaptersCovered.length > 0 && (
-                      <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1 text-xs text-slate-500">
+                      <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1 text-xs text-[#F8F7F4]/55">
                         <span>覆盖章节：</span>
                         {p.chaptersCovered.map((chId) => {
                           const ch = getChapterById(chId);
                           return (
-                            <span key={chId} className="font-mono text-slate-700">
+                            <span key={chId} className="font-mono text-[#F8F7F4]/80">
                               {ch?.code ?? `Ch ${chId}`}
                             </span>
                           );
                         })}
                         {paperQuestions.some((q) => q.chapters.length >= 2) && (
-                          <span className="text-[#1D4ED8]">
+                          <span className="text-[#E0A458]">
                             · 含跨章题（已自动归入{' '}
                             {getModuleById(
                               resolveModuleForChapters(
@@ -512,7 +509,7 @@ export function PaperDownloaderView({
                               paperNumber: p.paperNumber,
                             })
                           }
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50/70 px-3 py-1.5 text-xs font-medium text-[#1D4ED8] hover:bg-blue-100 whitespace-nowrap shrink-0"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#E0A458]/35 bg-[#E0A458]/10 px-3 py-1.5 text-xs font-medium text-[#E0A458] hover:bg-[#E0A458]/20 whitespace-nowrap shrink-0"
                         >
                           <Scissors className="h-3.5 w-3.5" />
                           截图切题
@@ -520,7 +517,7 @@ export function PaperDownloaderView({
                         <a
                           href={`/api/papers/pdf/${p.id}`}
                           download
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap shrink-0"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-[#141416] px-3 py-1.5 text-xs font-medium text-[#F8F7F4]/80 hover:border-white/30 whitespace-nowrap shrink-0"
                         >
                           <FileDown className="h-3.5 w-3.5" />
                           下载原卷 PDF
@@ -532,7 +529,7 @@ export function PaperDownloaderView({
                         href={p.groundingUrls[0].uri}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 whitespace-nowrap shrink-0"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-[#141416] px-3 py-1.5 text-xs font-medium text-[#F8F7F4]/80 hover:border-white/30 whitespace-nowrap shrink-0"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                         来源网页
@@ -547,7 +544,7 @@ export function PaperDownloaderView({
                             paperQuestions
                           )
                         }
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#1D4ED8] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1E40AF] whitespace-nowrap shrink-0"
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-[#E0A458] px-3 py-1.5 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E] whitespace-nowrap shrink-0"
                       >
                         <Play className="h-3.5 w-3.5" />
                         开始做题
@@ -561,27 +558,26 @@ export function PaperDownloaderView({
         </section>
       )}
 
-      {/* 2021-2026 Official CAIE 9701 Catalog Explorer */}
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <div className="flex flex-col justify-between gap-4 border-b border-slate-100 pb-4 lg:flex-row lg:items-center">
+      <section className="rounded-xl border border-white/10 bg-[#18181A] p-6">
+        <div className="flex flex-col justify-between gap-4 border-b border-white/[0.06] pb-4 lg:flex-row lg:items-center">
           <div>
-            <h2 className="text-base font-semibold text-slate-900">
+            <h2 className="text-base font-semibold text-[#F8F7F4]">
               2021–2026 CAIE 9701 历年真题目录索引
             </h2>
-            <p className="mt-0.5 text-xs text-slate-500">
+            <p className="mt-0.5 text-xs text-[#F8F7F4]/55">
               选择年份、考季与试卷类型，点击「网页抓取解析」即可尝试直连下载原卷或实时检索入库。
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+              <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-[#F8F7F4]/40" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索卷号如 9701/12"
-                className="w-40 rounded-lg border border-slate-200 py-1.5 pl-8 pr-2.5 text-xs text-slate-900 focus:border-[#1D4ED8] focus:outline-none"
+                className="w-40 rounded-lg border border-white/12 bg-[#111113] py-1.5 pl-8 pr-2.5 text-xs text-[#F8F7F4] placeholder:text-[#F8F7F4]/35 focus:border-[#E0A458] focus:outline-none"
               />
             </div>
 
@@ -590,7 +586,7 @@ export function PaperDownloaderView({
               onChange={(e) =>
                 setYearFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))
               }
-              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700"
+              className="rounded-lg border border-white/12 bg-[#111113] px-2.5 py-1.5 text-xs font-medium text-[#F8F7F4]/85 focus:border-[#E0A458] focus:outline-none"
             >
               <option value="all">2021–2026 全部年份</option>
               {[2026, 2025, 2024, 2023, 2022, 2021].map((y) => (
@@ -605,7 +601,7 @@ export function PaperDownloaderView({
               onChange={(e) =>
                 setSessionFilter(e.target.value as ExamSession | 'all')
               }
-              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700"
+              className="rounded-lg border border-white/12 bg-[#111113] px-2.5 py-1.5 text-xs font-medium text-[#F8F7F4]/85 focus:border-[#E0A458] focus:outline-none"
             >
               <option value="all">全部考季</option>
               <option value="F/M">Feb / Mar</option>
@@ -622,7 +618,7 @@ export function PaperDownloaderView({
                     : (Number(e.target.value) as 1 | 2 | 4)
                 )
               }
-              className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700"
+              className="rounded-lg border border-white/12 bg-[#111113] px-2.5 py-1.5 text-xs font-medium text-[#F8F7F4]/85 focus:border-[#E0A458] focus:outline-none"
             >
               <option value="all">全部 Paper</option>
               <option value={1}>Paper 1 (AS 选择)</option>
@@ -634,13 +630,13 @@ export function PaperDownloaderView({
 
         <div className="mt-4 overflow-x-auto">
           {loadingCatalog ? (
-            <div className="py-10 text-center text-sm text-slate-500">
+            <div className="py-10 text-center text-sm text-[#F8F7F4]/45">
               正在加载 2021–2026 试卷目录...
             </div>
           ) : (
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-xs font-medium text-slate-500">
+                <tr className="border-b border-white/10 font-mono text-[11px] uppercase tracking-[0.1em] text-[#F8F7F4]/50">
                   <th className="py-2.5 pr-4">试卷代码</th>
                   <th className="py-2.5 pr-4">年份 / 考季</th>
                   <th className="py-2.5 pr-4">试卷类型</th>
@@ -648,21 +644,21 @@ export function PaperDownloaderView({
                   <th className="py-2.5 text-right">操作</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-white/[0.06]">
                 {filteredCatalog.slice(0, 36).map((item) => {
                   const isBusy = busyCode === item.paperCode;
                   const alreadyDownloaded = downloadedPapers.some(
                     (d) => d.paperCode === item.paperCode
                   );
                   return (
-                    <tr key={item.paperCode} className="hover:bg-slate-50/70">
-                      <td className="py-3 pr-4 font-mono text-xs font-semibold text-slate-900 tabular-nums">
+                    <tr key={item.paperCode} className="hover:bg-white/[0.03]">
+                      <td className="py-3 pr-4 font-mono text-xs font-semibold text-[#F8F7F4] tabular-nums">
                         {item.paperCode}
                       </td>
-                      <td className="py-3 pr-4 text-xs text-slate-600 tabular-nums">
+                      <td className="py-3 pr-4 text-xs text-[#F8F7F4]/60 tabular-nums">
                         {item.year} · {item.sessionLabel}
                       </td>
-                      <td className="py-3 pr-4 text-xs text-slate-700">
+                      <td className="py-3 pr-4 text-xs text-[#F8F7F4]/75">
                         {item.paperTypeLabel}
                       </td>
                       <td className="py-3 pr-4">
@@ -670,7 +666,7 @@ export function PaperDownloaderView({
                           href={item.alternateSearchUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-[#1D4ED8]"
+                          className="inline-flex items-center gap-1 text-xs text-[#F8F7F4]/55 hover:text-[#E0A458]"
                         >
                           PapaCambridge
                           <ExternalLink className="h-3 w-3" />
@@ -690,8 +686,8 @@ export function PaperDownloaderView({
                           disabled={busyCode !== null}
                           className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap shrink-0 ${
                             alreadyDownloaded
-                              ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
-                              : 'border border-slate-200 bg-white text-slate-800 hover:border-[#1D4ED8] hover:text-[#1D4ED8]'
+                              ? 'border border-emerald-500/35 bg-emerald-500/10 text-emerald-300'
+                              : 'border border-white/12 bg-[#141416] text-[#F8F7F4]/85 hover:border-[#E0A458] hover:text-[#E0A458]'
                           }`}
                         >
                           {isBusy ? (

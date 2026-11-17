@@ -37,7 +37,6 @@ export function MockExamSetupView({
 
   function launchMock() {
     const pool = [...eligibleQuestions];
-    // Deterministic-friendly shuffle for varied mock papers
     for (let i = pool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
@@ -46,7 +45,6 @@ export function MockExamSetupView({
     if (chosen.length === 0) return;
 
     const totalMarks = chosen.reduce((acc, q) => acc + q.marks, 0);
-    // Authentic CAIE pacing: ~1.5 min per mark for structured, ~1.9 min per MCQ
     const durationSeconds = Math.max(
       600,
       chosen.reduce((acc, q) => acc + (q.type === 'mcq' ? 110 : q.marks * 95), 0)
@@ -63,22 +61,23 @@ export function MockExamSetupView({
 
   return (
     <div className="space-y-8">
-      <div className="border-b border-slate-200 pb-5">
-        <p className="text-xs font-medium tracking-wide text-slate-500">
-          TIMED ASSESSMENT &amp; CAIE GRADE THRESHOLD ESTIMATOR
+      <div className="border-b border-white/10 pb-6">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#F8F7F4]/50">
+          MODULE 04 · TIMED DIAGNOSTIC &amp; GRADE THRESHOLD ESTIMATOR
         </p>
-        <h1 className="mt-1.5 text-2xl font-semibold tracking-tight text-slate-900">
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[#F8F7F4] sm:text-3xl">
           模拟考测评与成绩等级评估
         </h1>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-2 max-w-2xl text-sm text-[#F8F7F4]/65">
           选择试卷模式与年份范围进行全真限时测评，交卷后自动判定错题并计入错题频率统计，同时估算 CAIE 9701 等级（A*–U）。
         </p>
       </div>
 
-      {/* Mode Selection + Configuration */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-3 lg:col-span-2">
-          <div className="text-xs font-semibold text-slate-700">1. 选择模拟考卷类型</div>
+        <div className="space-y-4 lg:col-span-2">
+          <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#F8F7F4]/55">
+            01 · 选择模拟考卷类型
+          </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {(
               [
@@ -106,18 +105,22 @@ export function MockExamSetupView({
                   onClick={() => setSelectedMode(mode.id)}
                   className={`flex flex-col justify-between rounded-xl border p-4 text-left transition-colors ${
                     active
-                      ? 'border-[#1D4ED8] bg-blue-50/40'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
+                      ? 'border-[#E0A458] bg-[#E0A458]/10'
+                      : 'border-white/10 bg-[#18181A] hover:border-white/25'
                   }`}
                 >
                   <div>
-                    <div className="font-mono text-xs font-semibold text-[#1D4ED8]">
+                    <div
+                      className={`font-mono text-xs font-semibold ${
+                        active ? 'text-[#E0A458]' : 'text-[#F8F7F4]/60'
+                      }`}
+                    >
                       {mode.id}
                     </div>
-                    <div className="mt-1 text-sm font-semibold text-slate-900">
+                    <div className="mt-1.5 text-sm font-semibold text-[#F8F7F4]">
                       {mode.title}
                     </div>
-                    <p className="mt-1.5 text-xs leading-relaxed text-slate-600">
+                    <p className="mt-1.5 text-xs leading-relaxed text-[#F8F7F4]/60">
                       {mode.sub}
                     </p>
                   </div>
@@ -126,16 +129,19 @@ export function MockExamSetupView({
             })}
           </div>
 
-          {/* Scope & Question Count Controls */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5">
-            <div className="text-xs font-semibold text-slate-700">2. 考纲范围与题量设置</div>
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-white/10 bg-[#18181A] p-6">
+            <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#F8F7F4]/55">
+              02 · Setup Assessment · 考纲范围与题量设置
+            </div>
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
-                <label className="block text-xs font-medium text-slate-600">考纲层级</label>
+                <label className="block font-mono text-[11px] uppercase tracking-[0.14em] text-[#F8F7F4]/55">
+                  考纲范围
+                </label>
                 <select
                   value={levelScope}
                   onChange={(e) => setLevelScope(e.target.value as ChemLevel | 'ALL')}
-                  className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
+                  className="mt-2 w-full rounded-lg border border-white/12 bg-[#111113] px-3 py-2.5 text-sm text-[#F8F7F4] focus:border-[#E0A458] focus:outline-none"
                 >
                   <option value="ALL">AS + A2 全纲 (Ch 1–30)</option>
                   <option value="AS">仅 AS Level (Ch 1–18)</option>
@@ -143,11 +149,13 @@ export function MockExamSetupView({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600">真题起始年份</label>
+                <label className="block font-mono text-[11px] uppercase tracking-[0.14em] text-[#F8F7F4]/55">
+                  真题起始年份
+                </label>
                 <select
                   value={yearMin}
                   onChange={(e) => setYearMin(Number(e.target.value))}
-                  className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
+                  className="mt-2 w-full rounded-lg border border-white/12 bg-[#111113] px-3 py-2.5 text-sm text-[#F8F7F4] focus:border-[#E0A458] focus:outline-none"
                 >
                   <option value={2021}>2021–2026 全部年份</option>
                   <option value={2023}>2023–2026 近四年</option>
@@ -155,13 +163,13 @@ export function MockExamSetupView({
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-slate-600">
-                  抽题数量 (可选上限 {eligibleQuestions.length} 题)
+                <label className="block font-mono text-[11px] uppercase tracking-[0.14em] text-[#F8F7F4]/55">
+                  抽取题数 (上限 {eligibleQuestions.length})
                 </label>
                 <select
                   value={questionLimit}
                   onChange={(e) => setQuestionLimit(Number(e.target.value))}
-                  className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
+                  className="mt-2 w-full rounded-lg border border-white/12 bg-[#111113] px-3 py-2.5 text-sm text-[#F8F7F4] focus:border-[#E0A458] focus:outline-none"
                 >
                   <option value={8}>8 题 · 快速测验</option>
                   <option value={12}>12 题 · 标准诊断</option>
@@ -173,31 +181,36 @@ export function MockExamSetupView({
           </div>
         </div>
 
-        {/* Summary & Launch Box */}
-        <div className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-6">
+        <div className="flex flex-col justify-between rounded-xl border border-white/10 bg-[#18181A] p-6">
           <div>
-            <div className="text-xs font-medium text-slate-500">本次组卷预览</div>
-            <h2 className="mt-1 text-lg font-semibold text-slate-900">{selectedMode}</h2>
-            <dl className="mt-4 space-y-2.5 border-t border-slate-100 pt-4 text-sm">
+            <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#F8F7F4]/50">
+              Preview · 组卷预览
+            </div>
+            <h2 className="mt-2 text-lg font-semibold text-[#F8F7F4]">{selectedMode}</h2>
+            <dl className="mt-5 space-y-3 border-t border-white/[0.06] pt-4 text-sm">
               <div className="flex justify-between">
-                <dt className="text-slate-500">符合条件真题池</dt>
-                <dd className="font-mono font-semibold text-slate-900 tabular-nums">
-                  {eligibleQuestions.length} 题
+                <dt className="text-[#F8F7F4]/55">符合条件真题池</dt>
+                <dd className="font-mono font-semibold text-[#F8F7F4] tabular-nums">
+                  {eligibleQuestions.length} Qs
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-slate-500">实际抽取题数</dt>
-                <dd className="font-mono font-semibold text-slate-900 tabular-nums">
-                  {Math.min(questionLimit, eligibleQuestions.length)} 题
+                <dt className="text-[#F8F7F4]/55">实际抽取题数</dt>
+                <dd className="font-mono font-semibold text-[#E0A458] tabular-nums">
+                  {Math.min(questionLimit, eligibleQuestions.length)} Qs
                 </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-slate-500">计时规则</dt>
-                <dd className="font-mono text-slate-700 tabular-nums">按 CAIE 分值倒计时</dd>
+                <dt className="text-[#F8F7F4]/55">计时规则</dt>
+                <dd className="font-mono text-xs text-[#F8F7F4]/75 tabular-nums">
+                  CAIE 分值倒计时
+                </dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-slate-500">交卷自动处理</dt>
-                <dd className="text-right text-slate-700">统计错题频率 + 等级评定</dd>
+                <dt className="text-[#F8F7F4]/55">交卷自动处理</dt>
+                <dd className="text-right text-xs text-[#F8F7F4]/75">
+                  错题统计 + 等级评定
+                </dd>
               </div>
             </dl>
           </div>
@@ -205,7 +218,7 @@ export function MockExamSetupView({
           <button
             onClick={launchMock}
             disabled={eligibleQuestions.length === 0}
-            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#1E40AF] disabled:opacity-40 whitespace-nowrap shrink-0"
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#E0A458] px-4 py-3 text-xs font-bold uppercase tracking-[0.12em] text-[#111113] transition-colors hover:bg-[#EBB66E] disabled:opacity-40 whitespace-nowrap shrink-0"
           >
             <Play className="h-4 w-4" />
             开始限时模拟考
@@ -213,26 +226,25 @@ export function MockExamSetupView({
         </div>
       </div>
 
-      {/* Mock History Table */}
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+      <section className="rounded-xl border border-white/10 bg-[#18181A] p-6">
+        <div className="flex items-center justify-between border-b border-white/[0.06] pb-4">
           <div className="flex items-center gap-2">
-            <Award className="h-4 w-4 text-slate-500" />
-            <h2 className="text-base font-semibold text-slate-900">
-              历史模拟考测评记录 ({mockHistory.length})
+            <Award className="h-4 w-4 text-[#E0A458]" />
+            <h2 className="text-base font-semibold text-[#F8F7F4]">
+              Historical Records · 历史模拟考测评记录 ({mockHistory.length})
             </h2>
           </div>
         </div>
 
         {mockHistory.length === 0 ? (
-          <div className="py-10 text-center text-sm text-slate-500">
+          <div className="py-12 text-center text-sm text-[#F8F7F4]/45">
             尚未完成过模拟考测评。点击上方「开始限时模拟考」生成您的第一份成绩与等级报告。
           </div>
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-xs font-medium text-slate-500">
+                <tr className="border-b border-white/10 font-mono text-[11px] uppercase tracking-[0.1em] text-[#F8F7F4]/50">
                   <th className="py-2.5 pr-4">测评名称</th>
                   <th className="py-2.5 pr-4">完成时间</th>
                   <th className="py-2.5 pr-4 text-right">用时</th>
@@ -241,7 +253,7 @@ export function MockExamSetupView({
                   <th className="py-2.5">本次主要失分章节</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-white/[0.06]">
                 {mockHistory.map((m) => {
                   const weakChs = m.chapterBreakdown
                     .filter((b) => b.wrong > 0)
@@ -252,14 +264,14 @@ export function MockExamSetupView({
                   const secs = m.durationSeconds % 60;
 
                   return (
-                    <tr key={m.id} className="hover:bg-slate-50/70">
-                      <td className="py-3 pr-4 font-medium text-slate-900">
+                    <tr key={m.id} className="hover:bg-white/[0.03]">
+                      <td className="py-3 pr-4 font-medium text-[#F8F7F4]">
                         <div className="flex items-center gap-2">
-                          <FileCheck2 className="h-4 w-4 text-slate-400 shrink-0" />
+                          <FileCheck2 className="h-4 w-4 text-[#F8F7F4]/45 shrink-0" />
                           <span>{m.title}</span>
                         </div>
                       </td>
-                      <td className="py-3 pr-4 font-mono text-xs text-slate-500 tabular-nums">
+                      <td className="py-3 pr-4 font-mono text-xs text-[#F8F7F4]/55 tabular-nums">
                         {new Date(m.completedAt).toLocaleString('zh-CN', {
                           month: '2-digit',
                           day: '2-digit',
@@ -267,19 +279,19 @@ export function MockExamSetupView({
                           minute: '2-digit',
                         })}
                       </td>
-                      <td className="py-3 pr-4 text-right font-mono text-xs text-slate-600 tabular-nums">
+                      <td className="py-3 pr-4 text-right font-mono text-xs text-[#F8F7F4]/65 tabular-nums">
                         <span className="inline-flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-slate-400" />
+                          <Clock className="h-3 w-3 text-[#F8F7F4]/45" />
                           {mins}m {secs}s
                         </span>
                       </td>
-                      <td className="py-3 pr-4 text-right font-mono text-xs font-semibold text-slate-900 tabular-nums">
+                      <td className="py-3 pr-4 text-right font-mono text-xs font-semibold text-[#F8F7F4] tabular-nums">
                         {m.earnedMarks}/{m.totalMarks} ({m.percentage}%)
                       </td>
-                      <td className="py-3 pr-4 text-center font-mono text-sm font-bold text-[#1D4ED8]">
+                      <td className="py-3 pr-4 text-center font-mono text-sm font-bold text-[#E0A458]">
                         {m.estimatedGrade}
                       </td>
-                      <td className="py-3 font-mono text-xs text-slate-600">
+                      <td className="py-3 font-mono text-xs text-[#F8F7F4]/65">
                         {weakChs.length > 0 ? weakChs.join(' · ') : '全对无失分'}
                       </td>
                     </tr>

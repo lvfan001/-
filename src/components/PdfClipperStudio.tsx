@@ -22,7 +22,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 interface DetectedRegion {
   id: string;
-  box: [number, number, number, number]; // [ymin, xmin, ymax, xmax] 0-1000
+  box: [number, number, number, number];
   questionNumber: number;
   type: 'mcq' | 'structured';
   marks: number;
@@ -91,7 +91,6 @@ export function PdfClipperStudio({
   const activeDoc = activeDocMode === 'qp' ? qpPdfDoc : msPdfDoc;
   const totalPages = activeDoc?.numPages ?? 0;
 
-  // Auto-load PDF if initialPaper.paperId is provided
   useEffect(() => {
     if (!initialPaper?.paperId) return;
     let mounted = true;
@@ -124,7 +123,6 @@ export function PdfClipperStudio({
     };
   }, [initialPaper?.paperId]);
 
-  // Render current PDF page onto canvas
   useEffect(() => {
     if (!activeDoc || !canvasRef.current) return;
     let cancelled = false;
@@ -420,30 +418,29 @@ export function PdfClipperStudio({
 
   return (
     <div className="space-y-5">
-      {/* Studio Top Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
         <div className="flex items-center gap-3">
           <button
             onClick={onClose}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#18181A] px-3 py-1.5 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458] hover:text-[#E0A458]"
           >
             <X className="h-3.5 w-3.5" />
             关闭工作室
           </button>
           <div>
-            <h1 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
-              <Scissors className="h-4 w-4 text-[#1D4ED8]" />
+            <h1 className="flex items-center gap-2 text-lg font-semibold text-[#F8F7F4]">
+              <Scissors className="h-4 w-4 text-[#E0A458]" />
               PDF 原卷截图切题工作室（AI 框选 + 手动裁剪）
             </h1>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[#F8F7F4]/55">
               载入 2021–2026 真题 PDF，通过 AI 自动识别框选或鼠标拖拽精确截取图表题与原题画面，自动路由至 30 章节或跨章模块。
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 hover:border-[#1D4ED8]">
-            <FileUp className="h-3.5 w-3.5 text-[#1D4ED8]" />
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/15 bg-[#18181A] px-3 py-1.5 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458]">
+            <FileUp className="h-3.5 w-3.5 text-[#E0A458]" />
             打开 QP PDF
             <input
               type="file"
@@ -452,8 +449,8 @@ export function PdfClipperStudio({
               onChange={(e) => handleFileSelect('qp', e.target.files?.[0] ?? null)}
             />
           </label>
-          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 hover:border-[#1D4ED8]">
-            <FileUp className="h-3.5 w-3.5 text-emerald-700" />
+          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/15 bg-[#18181A] px-3 py-1.5 text-xs font-medium text-[#F8F7F4]/85 hover:border-emerald-400">
+            <FileUp className="h-3.5 w-3.5 text-emerald-400" />
             打开 MS PDF (可选)
             <input
               type="file"
@@ -469,8 +466,8 @@ export function PdfClipperStudio({
         <div
           className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-xs ${
             notice.type === 'ok'
-              ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-              : 'border-red-200 bg-red-50 text-red-900'
+              ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+              : 'border-red-500/30 bg-red-500/10 text-red-300'
           }`}
         >
           <CheckCircle2 className="h-4 w-4 shrink-0" />
@@ -478,13 +475,11 @@ export function PdfClipperStudio({
         </div>
       )}
 
-      {/* Two-Zone Studio: Left 65% Interactive Canvas, Right 35% Crop Inspector & Chapter Tagging */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left Canvas Zone */}
-        <div className="flex flex-col rounded-xl border border-slate-200 bg-white lg:col-span-8">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-4 py-3">
+        <div className="flex flex-col rounded-xl border border-white/10 bg-[#18181A] lg:col-span-8">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.06] px-4 py-3">
             <div className="flex items-center gap-2">
-              <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs">
+              <div className="inline-flex rounded-lg border border-white/10 bg-[#111113] p-0.5 text-xs">
                 <button
                   onClick={() => {
                     setActiveDocMode('qp');
@@ -492,7 +487,9 @@ export function PdfClipperStudio({
                     setRegions([]);
                   }}
                   className={`rounded-md px-2.5 py-1 font-medium ${
-                    activeDocMode === 'qp' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'
+                    activeDocMode === 'qp'
+                      ? 'bg-[#E0A458] text-[#111113] font-semibold'
+                      : 'text-[#F8F7F4]/60'
                   }`}
                 >
                   试题卷 QP
@@ -504,8 +501,10 @@ export function PdfClipperStudio({
                     setRegions([]);
                   }}
                   disabled={!msPdfDoc}
-                  className={`rounded-md px-2.5 py-1 font-medium disabled:opacity-40 ${
-                    activeDocMode === 'ms' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'
+                  className={`rounded-md px-2.5 py-1 font-medium disabled:opacity-35 ${
+                    activeDocMode === 'ms'
+                      ? 'bg-[#E0A458] text-[#111113] font-semibold'
+                      : 'text-[#F8F7F4]/60'
                   }`}
                 >
                   评分标准 MS
@@ -513,14 +512,14 @@ export function PdfClipperStudio({
               </div>
 
               {activeDoc && (
-                <div className="flex items-center gap-1 text-xs text-slate-600">
+                <div className="flex items-center gap-1 text-xs text-[#F8F7F4]/70">
                   <button
                     onClick={() => {
                       setPageNum((p) => Math.max(1, p - 1));
                       setRegions([]);
                     }}
                     disabled={pageNum <= 1}
-                    className="rounded border border-slate-200 p-1 hover:bg-slate-50 disabled:opacity-40"
+                    className="rounded border border-white/12 bg-[#111113] p-1 hover:border-[#E0A458] disabled:opacity-35"
                   >
                     <ChevronLeft className="h-3.5 w-3.5" />
                   </button>
@@ -533,7 +532,7 @@ export function PdfClipperStudio({
                       setRegions([]);
                     }}
                     disabled={pageNum >= totalPages}
-                    className="rounded border border-slate-200 p-1 hover:bg-slate-50 disabled:opacity-40"
+                    className="rounded border border-white/12 bg-[#111113] p-1 hover:border-[#E0A458] disabled:opacity-35"
                   >
                     <ChevronRight className="h-3.5 w-3.5" />
                   </button>
@@ -545,7 +544,7 @@ export function PdfClipperStudio({
               <select
                 value={scale}
                 onChange={(e) => setScale(Number(e.target.value))}
-                className="rounded-lg border border-slate-200 px-2 py-1 font-mono text-xs text-slate-700"
+                className="rounded-lg border border-white/12 bg-[#111113] px-2 py-1 font-mono text-xs text-[#F8F7F4]/85"
               >
                 <option value={1.1}>110%</option>
                 <option value={1.5}>150%</option>
@@ -555,7 +554,7 @@ export function PdfClipperStudio({
               <button
                 onClick={handleAiDetectPage}
                 disabled={!activeDoc || aiDetecting}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#1D4ED8] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#1E40AF] disabled:opacity-40 whitespace-nowrap shrink-0"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#E0A458] px-3 py-1.5 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E] disabled:opacity-35 whitespace-nowrap shrink-0"
               >
                 {aiDetecting ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -567,24 +566,24 @@ export function PdfClipperStudio({
             </div>
           </div>
 
-          <div className="max-h-[75vh] overflow-auto bg-slate-100 p-4">
+          <div className="max-h-[75vh] overflow-auto bg-[#0D0D0F] p-4">
             {loadingPdf ? (
-              <div className="flex h-96 items-center justify-center text-sm text-slate-500">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <div className="flex h-96 items-center justify-center text-sm text-[#F8F7F4]/55">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#E0A458]" />
                 正在渲染 PDF 页面...
               </div>
             ) : !activeDoc ? (
-              <div className="flex h-96 flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
-                <Crop className="h-8 w-8 text-slate-400" />
-                <p className="mt-3 text-sm font-medium text-slate-800">
+              <div className="flex h-96 flex-col items-center justify-center rounded-xl border border-dashed border-white/15 bg-[#141416] p-8 text-center">
+                <Crop className="h-8 w-8 text-[#E0A458]/70" />
+                <p className="mt-3 text-sm font-medium text-[#F8F7F4]">
                   请点击右上角「打开 QP PDF」选择任意 2021–2026 CAIE 9701 真题 PDF
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-[#F8F7F4]/55">
                   载入后可使用「AI 智能框选」或直接用鼠标在试卷上拖拽框选图表题截图。
                 </p>
               </div>
             ) : (
-              <div className="relative mx-auto inline-block shadow-sm">
+              <div className="relative mx-auto inline-block shadow-lg">
                 <canvas ref={canvasRef} className="block bg-white" />
                 <div
                   ref={overlayRef}
@@ -611,11 +610,11 @@ export function PdfClipperStudio({
                         }}
                         className={`absolute border-2 transition-colors ${
                           isSel
-                            ? 'border-[#1D4ED8] bg-[#1D4ED8]/10'
-                            : 'border-amber-500 bg-amber-400/10 hover:border-[#1D4ED8]'
+                            ? 'border-[#1D4ED8] bg-[#1D4ED8]/15'
+                            : 'border-[#E0A458] bg-[#E0A458]/15 hover:border-[#1D4ED8]'
                         }`}
                       >
-                        <span className="inline-block bg-[#1D4ED8] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-white">
+                        <span className="inline-block bg-[#111113] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-[#E0A458]">
                           Q{reg.questionNumber}
                         </span>
                       </div>
@@ -625,7 +624,7 @@ export function PdfClipperStudio({
                   {liveDragBox && (
                     <div
                       style={liveDragBox}
-                      className="absolute border-2 border-dashed border-[#1D4ED8] bg-[#1D4ED8]/15"
+                      className="absolute border-2 border-dashed border-[#E0A458] bg-[#E0A458]/20"
                     />
                   )}
                 </div>
@@ -634,14 +633,13 @@ export function PdfClipperStudio({
           </div>
         </div>
 
-        {/* Right Preview & Tagging Panel */}
-        <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 lg:col-span-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <span className="text-sm font-semibold text-slate-900">截图预览与章节归类</span>
+        <div className="space-y-4 rounded-xl border border-white/10 bg-[#18181A] p-5 lg:col-span-4">
+          <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
+            <span className="text-sm font-semibold text-[#F8F7F4]">截图预览与章节归类</span>
             {regions.length > 0 && (
               <button
                 onClick={() => setRegions([])}
-                className="inline-flex items-center gap-1 text-xs text-slate-400 hover:text-red-600"
+                className="inline-flex items-center gap-1 text-xs text-[#F8F7F4]/45 hover:text-red-300"
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 清空选框
@@ -650,7 +648,7 @@ export function PdfClipperStudio({
           </div>
 
           {qpPreviewUrl ? (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+            <div className="rounded-lg border border-white/15 bg-white p-2">
               <img
                 src={qpPreviewUrl}
                 alt="Cropped QP preview"
@@ -658,13 +656,13 @@ export function PdfClipperStudio({
               />
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-5 text-center text-xs text-slate-500">
+            <div className="rounded-lg border border-dashed border-white/15 bg-[#141416] p-5 text-center text-xs text-[#F8F7F4]/50">
               在左侧画布拖拽框选一道完整真题（含配图与选项），截图将显示在此处
             </div>
           )}
 
           {msPreviewUrl && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-2">
+            <div className="rounded-lg border border-emerald-500/35 bg-white p-2">
               <div className="mb-1 text-[11px] font-medium text-emerald-800">
                 已关联评分标准 MS 截图：
               </div>
@@ -678,44 +676,44 @@ export function PdfClipperStudio({
 
           <div className="grid grid-cols-2 gap-2.5 text-xs">
             <div>
-              <label className="font-medium text-slate-700">试卷编号</label>
+              <label className="font-medium text-[#F8F7F4]/70">试卷编号</label>
               <input
                 type="text"
                 value={paperCode}
                 onChange={(e) => setPaperCode(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 font-mono text-xs"
+                className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-2.5 py-1.5 font-mono text-xs text-[#F8F7F4] focus:border-[#E0A458] focus:outline-none"
               />
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               <div>
-                <label className="font-medium text-slate-700">年份</label>
+                <label className="font-medium text-[#F8F7F4]/70">年份</label>
                 <input
                   type="number"
                   value={year}
                   min={2021}
                   max={2026}
                   onChange={(e) => setYear(Number(e.target.value))}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 font-mono text-xs"
+                  className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-2 py-1.5 font-mono text-xs text-[#F8F7F4] focus:border-[#E0A458] focus:outline-none"
                 />
               </div>
               <div>
-                <label className="font-medium text-slate-700">题号</label>
+                <label className="font-medium text-[#F8F7F4]/70">题号</label>
                 <input
                   type="number"
                   value={qNumber}
                   min={1}
                   onChange={(e) => setQNumber(Number(e.target.value))}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 font-mono text-xs"
+                  className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-2 py-1.5 font-mono text-xs text-[#F8F7F4] focus:border-[#E0A458] focus:outline-none"
                 />
               </div>
             </div>
 
             <div>
-              <label className="font-medium text-slate-700">题型</label>
+              <label className="font-medium text-[#F8F7F4]/70">题型</label>
               <select
                 value={qType}
                 onChange={(e) => setQType(e.target.value as 'mcq' | 'structured')}
-                className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+                className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-2 py-1.5 text-xs text-[#F8F7F4]"
               >
                 <option value="mcq">选择题 (Paper 1 MCQ)</option>
                 <option value="structured">简答题 (Paper 2/4)</option>
@@ -724,11 +722,11 @@ export function PdfClipperStudio({
 
             {qType === 'mcq' ? (
               <div>
-                <label className="font-medium text-slate-700">正确选项</label>
+                <label className="font-medium text-[#F8F7F4]/70">正确选项</label>
                 <select
                   value={correctOpt}
                   onChange={(e) => setCorrectOpt(e.target.value as 'A' | 'B' | 'C' | 'D')}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 font-mono text-xs"
+                  className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-2 py-1.5 font-mono text-xs text-[#F8F7F4]"
                 >
                   <option value="A">A</option>
                   <option value="B">B</option>
@@ -738,28 +736,27 @@ export function PdfClipperStudio({
               </div>
             ) : (
               <div>
-                <label className="font-medium text-slate-700">分值 (Marks)</label>
+                <label className="font-medium text-[#F8F7F4]/70">分值 (Marks)</label>
                 <input
                   type="number"
                   min={1}
                   max={15}
                   value={qMarks}
                   onChange={(e) => setQMarks(Number(e.target.value))}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 font-mono text-xs"
+                  className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-2 py-1.5 font-mono text-xs text-[#F8F7F4]"
                 />
               </div>
             )}
           </div>
 
-          {/* 30-Chapter Multi-Selector with Auto Module Routing indicator */}
           <div>
             <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-slate-700">涉及章节（多选 ≥2 章自动归入模块）</span>
-              <span className="font-mono text-[11px] font-semibold text-[#1D4ED8]">
+              <span className="font-medium text-[#F8F7F4]/75">涉及章节（多选 ≥2 章自动归入模块）</span>
+              <span className="font-mono text-[11px] font-semibold text-[#E0A458]">
                 {routedModule ? `→ ${routedModule.code}` : `→ 单章 Ch ${selectedChapters[0]}`}
               </span>
             </div>
-            <div className="mt-1.5 grid max-h-32 grid-cols-6 gap-1 overflow-y-auto rounded-lg border border-slate-200 p-2">
+            <div className="mt-1.5 grid max-h-32 grid-cols-6 gap-1 overflow-y-auto rounded-lg border border-white/12 bg-[#111113] p-2">
               {CHAPTERS.map((ch) => {
                 const active = selectedChapters.includes(ch.id);
                 return (
@@ -770,8 +767,8 @@ export function PdfClipperStudio({
                     title={`${ch.code} ${ch.titleZh}`}
                     className={`rounded py-1 font-mono text-[11px] font-medium transition-colors ${
                       active
-                        ? 'bg-[#1D4ED8] text-white'
-                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        ? 'bg-[#E0A458] text-[#111113] font-semibold'
+                        : 'bg-[#18181A] text-[#F8F7F4]/70 hover:bg-white/10'
                     }`}
                   >
                     {String(ch.id).padStart(2, '0')}
@@ -783,23 +780,23 @@ export function PdfClipperStudio({
 
           <div className="space-y-2 text-xs">
             <div>
-              <label className="font-medium text-slate-700">补充解析 / Mark Scheme 要点（英文）</label>
+              <label className="font-medium text-[#F8F7F4]/70">补充解析 / Mark Scheme 要点（英文）</label>
               <textarea
                 rows={2}
                 value={explanationEn}
                 onChange={(e) => setExplanationEn(e.target.value)}
                 placeholder="可选：填写英文解答要点，若已关联 MS 截图可留空"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs"
+                className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-2.5 py-1.5 text-xs text-[#F8F7F4] placeholder:text-[#F8F7F4]/30 focus:border-[#E0A458] focus:outline-none"
               />
             </div>
             <div>
-              <label className="font-medium text-slate-700">中文解析备注（可选，默认做题隐藏）</label>
+              <label className="font-medium text-[#F8F7F4]/70">中文解析备注（可选，默认做题隐藏）</label>
               <textarea
                 rows={2}
                 value={explanationZh}
                 onChange={(e) => setExplanationZh(e.target.value)}
                 placeholder="可选：填写中文核心提示"
-                className="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs"
+                className="mt-1 w-full rounded-lg border border-white/12 bg-[#111113] px-2.5 py-1.5 text-xs text-[#F8F7F4] placeholder:text-[#F8F7F4]/30 focus:border-[#E0A458] focus:outline-none"
               />
             </div>
           </div>
@@ -808,7 +805,7 @@ export function PdfClipperStudio({
             <select
               value={session}
               onChange={(e) => setSession(e.target.value as ExamSession)}
-              className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+              className="rounded-lg border border-white/12 bg-[#111113] px-2 py-1.5 text-xs text-[#F8F7F4]"
             >
               <option value="F/M">Feb/Mar</option>
               <option value="M/J">May/June</option>
@@ -817,7 +814,7 @@ export function PdfClipperStudio({
             <select
               value={paperNumber}
               onChange={(e) => setPaperNumber(Number(e.target.value) as 1 | 2 | 4)}
-              className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
+              className="rounded-lg border border-white/12 bg-[#111113] px-2 py-1.5 text-xs text-[#F8F7F4]"
             >
               <option value={1}>Paper 1</option>
               <option value={2}>Paper 2</option>
@@ -829,7 +826,7 @@ export function PdfClipperStudio({
             type="button"
             onClick={handleSaveClippedQuestion}
             disabled={!qpPreviewUrl || saving}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2.5 text-xs font-medium text-white hover:bg-[#1E40AF] disabled:opacity-40"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#E0A458] px-4 py-2.5 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E] disabled:opacity-35"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             保存原卷截图真题到题库

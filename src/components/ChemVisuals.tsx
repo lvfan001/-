@@ -129,7 +129,7 @@ export function ClippedQuestionImage({
 
   if (!src) {
     return (
-      <div className="my-4 rounded-xl border border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-500">
+      <div className="my-4 rounded-xl border border-white/10 bg-[#18181A] p-6 text-center text-xs text-[#F8F7F4]/55">
         Loading clipped exam paper image...
       </div>
     );
@@ -137,7 +137,7 @@ export function ClippedQuestionImage({
 
   if (imgError) {
     return (
-      <div className="my-4 flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-4 text-xs text-amber-900">
+      <div className="my-4 flex items-center justify-between gap-3 rounded-xl border border-[#E0A458]/35 bg-[#E0A458]/10 p-4 text-xs text-[#E0A458]">
         <span>原卷截图加载失败（{caption ?? alt}）</span>
         {imageUrl && (
           <button
@@ -147,7 +147,7 @@ export function ClippedQuestionImage({
               const sep = imageUrl.includes('?') ? '&' : '?';
               setSrc(`${imageUrl}${sep}r=${Date.now()}`);
             }}
-            className="shrink-0 rounded-md border border-amber-300 bg-white px-2.5 py-1 font-medium text-amber-900 hover:bg-amber-100"
+            className="shrink-0 rounded-md border border-[#E0A458]/40 bg-[#18181A] px-2.5 py-1 font-medium text-[#E0A458] hover:bg-[#E0A458]/20"
           >
             重新加载
           </button>
@@ -158,8 +158,8 @@ export function ClippedQuestionImage({
 
   return (
     <>
-      <figure className="my-4 rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
-        <div className="relative overflow-hidden rounded-lg bg-white">
+      <figure className="my-4 rounded-xl border border-white/12 bg-[#141416] p-3 sm:p-4">
+        <div className="relative overflow-hidden rounded-lg bg-white p-2 sm:p-3">
           <img
             src={src}
             alt={alt}
@@ -171,14 +171,14 @@ export function ClippedQuestionImage({
           <button
             type="button"
             onClick={() => setZoomed(true)}
-            className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white/95 px-2.5 py-1 text-xs font-medium text-slate-700 shadow-xs hover:text-[#1D4ED8]"
+            className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white/95 px-2.5 py-1 text-xs font-medium text-slate-800 shadow-xs hover:border-[#E0A458] hover:text-slate-950"
           >
             <Maximize2 className="h-3 w-3" />
             放大审图
           </button>
         </div>
         {caption && (
-          <figcaption className="mt-2 text-center text-xs text-slate-500">
+          <figcaption className="mt-2.5 text-center font-mono text-[11px] text-[#F8F7F4]/55">
             {caption}
           </figcaption>
         )}
@@ -186,17 +186,17 @@ export function ClippedQuestionImage({
 
       {zoomed && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
           onClick={() => setZoomed(false)}
         >
           <div
-            className="relative max-h-[92vh] max-w-5xl overflow-auto rounded-xl bg-white p-4"
+            className="relative max-h-[92vh] max-w-5xl overflow-auto rounded-xl border border-white/15 bg-white p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setZoomed(false)}
-              className="absolute right-3 top-3 rounded-lg border border-slate-200 bg-white p-1.5 text-slate-700 hover:bg-slate-50"
+              className="sticky float-right right-1 top-1 rounded-lg border border-slate-200 bg-white p-1.5 text-slate-800 hover:bg-slate-100"
               aria-label="关闭放大视图"
             >
               <X className="h-4 w-4" />
@@ -231,8 +231,8 @@ export function ChemDiagram({
   if (!kind) return null;
 
   return (
-    <figure className="my-4 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
-      <div className="overflow-x-auto">
+    <figure className="my-4 rounded-xl border border-white/12 bg-[#141416] p-4">
+      <div className="overflow-x-auto rounded-lg bg-white p-3">
         {kind === 'enthalpy' && <EnthalpySvg p={p} />}
         {kind === 'maxwell' && <MaxwellSvg p={p} />}
         {kind === 'born-haber' && <BornHaberSvg p={p} />}
@@ -249,7 +249,7 @@ export function ChemDiagram({
         {kind === 'paper5-graph' && <Paper5GraphSvg p={p} />}
       </div>
       {caption && (
-        <figcaption className="mt-2 text-center text-xs text-slate-500">
+        <figcaption className="mt-2.5 text-center font-mono text-[11px] text-[#F8F7F4]/55">
           {caption}
         </figcaption>
       )}

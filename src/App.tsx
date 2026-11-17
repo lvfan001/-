@@ -392,14 +392,14 @@ export default function App() {
   const currentNavLabel = navItems.find((n) => n.id === activeView)?.label ?? '工作台';
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] lg:flex">
-      {/* Desktop Left Sidebar (256px) */}
-      <aside className="hidden w-64 shrink-0 flex-col justify-between border-r border-slate-200 bg-white lg:flex">
+    <div className="min-h-screen bg-[#111113] text-[#F8F7F4] lg:flex">
+      {/* Desktop Left Sidebar (272px) */}
+      <aside className="hidden w-[272px] shrink-0 flex-col justify-between border-r border-white/10 bg-[#141416] lg:flex">
         <div>
-          <div className="flex h-16 items-center gap-2.5 border-b border-slate-200 px-6">
-            <FlaskConical className="h-5 w-5 text-[#1D4ED8]" />
-            <span className="font-display text-base font-bold tracking-tight text-slate-900 whitespace-nowrap">
-              Chem9701 Studio
+          <div className="flex h-16 items-center gap-2.5 border-b border-white/10 px-6">
+            <FlaskConical className="h-5 w-5 text-[#E0A458]" />
+            <span className="font-mono text-base font-bold tracking-tight text-[#F8F7F4] whitespace-nowrap">
+              CHEM9701
             </span>
           </div>
 
@@ -413,10 +413,10 @@ export default function App() {
                     setActiveQuiz(null);
                     setActiveView(item.id);
                   }}
-                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors whitespace-nowrap ${
+                  className={`flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-left text-sm font-medium transition-colors whitespace-nowrap ${
                     active
-                      ? 'bg-blue-50 text-[#1D4ED8]'
-                      : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      ? 'bg-[#E0A458]/12 text-[#E0A458]'
+                      : 'text-[#F8F7F4]/65 hover:bg-white/[0.04] hover:text-[#F8F7F4]'
                   }`}
                 >
                   {item.icon}
@@ -427,14 +427,14 @@ export default function App() {
           </nav>
         </div>
 
-        <div className="space-y-3 border-t border-slate-200 p-4 text-xs text-slate-500">
-          <div className="space-y-1.5">
+        <div className="space-y-3 border-t border-white/10 p-4 text-xs text-[#F8F7F4]/60">
+          <div className="space-y-2">
             <button
               onClick={() => {
                 setAccountModalTab('account');
                 setAccountModalOpen(true);
               }}
-              className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 text-left text-xs font-medium text-slate-800 hover:border-[#1D4ED8] hover:text-[#1D4ED8]"
+              className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-[#18181A] px-3 py-2 text-left text-xs font-medium text-[#F8F7F4]/90 transition-colors hover:border-[#E0A458]/60 hover:text-[#E0A458]"
             >
               <span className="inline-flex items-center gap-1.5 truncate">
                 <KeyRound className="h-3.5 w-3.5 shrink-0" />
@@ -442,7 +442,7 @@ export default function App() {
                   {currentUser ? `${currentUser.displayName}` : '账号密码 / 微信'}
                 </span>
               </span>
-              <span className="text-[11px] text-slate-400 shrink-0">
+              <span className="font-mono text-[11px] text-[#F8F7F4]/45 shrink-0">
                 {currentUser ? '已登录' : '设置'}
               </span>
             </button>
@@ -451,17 +451,23 @@ export default function App() {
                 setAccountModalTab('reset');
                 setAccountModalOpen(true);
               }}
-              className="flex w-full items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs font-medium text-slate-700 hover:border-red-300 hover:text-red-700"
+              className="flex w-full items-center gap-1.5 rounded-lg border border-white/10 bg-[#18181A] px-3 py-2 text-left text-xs font-medium text-[#F8F7F4]/80 transition-colors hover:border-red-400/50 hover:text-red-300"
             >
               <RotateCcw className="h-3.5 w-3.5 shrink-0" />
               <span>重置 / 回退练习记录</span>
             </button>
           </div>
 
-          <div className="border-t border-slate-100 pt-2.5">
-            <div className="font-medium text-slate-700">CAIE 9701 考纲覆盖</div>
-            <div className="mt-1 font-mono tabular-nums">30 Chapters · 6 Modules</div>
-            <div className="mt-0.5 font-mono tabular-nums">2021–2026 Past Papers</div>
+          <div className="border-t border-white/10 pt-3">
+            <div className="font-mono text-[10px] tracking-[0.14em] uppercase text-[#F8F7F4]/45">
+              CAIE 9701 Syllabus
+            </div>
+            <div className="mt-1 font-mono text-xs text-[#F8F7F4]/75 tabular-nums">
+              30 Chapters · 6 Modules
+            </div>
+            <div className="mt-0.5 font-mono text-[11px] text-[#F8F7F4]/50 tabular-nums">
+              2021–2026 Past Papers
+            </div>
           </div>
         </div>
       </aside>
@@ -469,21 +475,21 @@ export default function App() {
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top Header */}
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white/95 px-4 backdrop-blur-xs sm:px-8">
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-4 border-b border-white/10 bg-[#111113]/95 px-4 backdrop-blur-xs sm:px-8">
           <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setMobileMenuOpen((v) => !v)}
-              className="rounded-lg border border-slate-200 p-2 text-slate-600 lg:hidden"
+              className="rounded-lg border border-white/15 p-2 text-[#F8F7F4]/75 hover:text-[#E0A458] lg:hidden"
               aria-label="切换导航菜单"
             >
               {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </button>
-            <div className="flex items-center gap-2 text-sm text-slate-500 min-w-0">
-              <span className="font-medium text-slate-900 whitespace-nowrap">
+            <div className="flex items-center gap-2 text-sm text-[#F8F7F4]/55 min-w-0">
+              <span className="font-mono text-xs font-bold tracking-tight text-[#F8F7F4] whitespace-nowrap">
                 Chem9701
               </span>
               <span aria-hidden="true">/</span>
-              <span className="truncate">
+              <span className="truncate text-[#F8F7F4]/85">
                 {activeQuiz ? activeQuiz.title : currentNavLabel}
               </span>
             </div>
@@ -496,7 +502,7 @@ export default function App() {
                   setAccountModalTab('reset');
                   setAccountModalOpen(true);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:text-slate-900 whitespace-nowrap shrink-0"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-[#18181A] px-3 py-2 text-xs font-medium text-[#F8F7F4]/85 transition-colors hover:border-white/25 hover:text-[#F8F7F4] whitespace-nowrap shrink-0"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 记录重置
@@ -506,14 +512,14 @@ export default function App() {
                   setAccountModalTab('account');
                   setAccountModalOpen(true);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:border-[#1D4ED8] hover:text-[#1D4ED8] whitespace-nowrap shrink-0"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-[#18181A] px-3 py-2 text-xs font-medium text-[#F8F7F4]/85 transition-colors hover:border-[#E0A458]/60 hover:text-[#E0A458] whitespace-nowrap shrink-0"
               >
                 <KeyRound className="h-3.5 w-3.5" />
                 {currentUser ? currentUser.displayName : '账号密码'}
               </button>
               <button
                 onClick={handleStartQuickMock}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#1D4ED8] px-3.5 py-2 text-xs font-medium text-white transition-colors hover:bg-[#1E40AF] whitespace-nowrap shrink-0"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#E0A458] px-3.5 py-2 text-xs font-bold text-[#111113] transition-colors hover:bg-[#EBB66E] whitespace-nowrap shrink-0"
               >
                 <Play className="h-3.5 w-3.5" />
                 快速诊断模考
@@ -524,7 +530,7 @@ export default function App() {
 
         {/* Mobile Drawer Nav */}
         {mobileMenuOpen && (
-          <div className="border-b border-slate-200 bg-white p-3 lg:hidden">
+          <div className="border-b border-white/10 bg-[#141416] p-3 lg:hidden">
             <nav className="space-y-1">
               {navItems.map((item) => {
                 const active = !activeQuiz && activeView === item.id;
@@ -537,7 +543,7 @@ export default function App() {
                       setMobileMenuOpen(false);
                     }}
                     className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
-                      active ? 'bg-blue-50 text-[#1D4ED8]' : 'text-slate-700'
+                      active ? 'bg-[#E0A458]/15 text-[#E0A458]' : 'text-[#F8F7F4]/75'
                     }`}
                   >
                     {item.icon}
