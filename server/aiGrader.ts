@@ -7,6 +7,7 @@ export interface GradingProviderInfo {
   label: string;
   model: string;
   configured: boolean;
+  supportsVision: boolean;
 }
 
 export interface GradeStructuredInput {
@@ -16,6 +17,8 @@ export interface GradeStructuredInput {
   explanationEn?: string;
   maxMarks: number;
   studentAnswer: string;
+  studentImageBase64?: string; // Raw base64 (without data:... prefix) or full data URL
+  studentImageMimeType?: string;
   preferredProvider?: GradingProviderId | 'auto';
 }
 
@@ -69,24 +72,31 @@ export function getGradingProvidersStatus(): {
   const deepseek = getDeepSeekConfig();
   const gemini = getGeminiConfig();
 
+  const customSupportsVision = Boolean(
+    custom && /(gpt-4|gpt-5|vl|vision|omni|gemini|claude|qwen2\.5-vl|qwen-vl)/i.test(custom.model)
+  );
+
   const providers: GradingProviderInfo[] = [
     {
       id: 'openai-compatible',
       label: custom?.label ?? '自定义 AI 接口 (OpenAI 兼容)',
       model: custom?.model ?? (process.env.GRADING_AI_MODEL || 'custom-model'),
       configured: Boolean(custom),
+      supportsVision: customSupportsVision,
     },
     {
       id: 'deepseek',
       label: 'DeepSeek',
       model: deepseek?.model ?? (process.env.DEEPSEEK_MODEL || 'deepseek-chat'),
       configured: Boolean(deepseek),
+      supportsVision: false,
     },
     {
       id: 'gemini',
       label: 'Gemini',
       model: gemini?.model ?? 'gemini-4-hydrogen',
       configured: Boolean(gemini),
+      supportsVision: Boolean(gemini),
     },
   ];
 
@@ -142,15 +152,38 @@ function buildGradingPromptText(input: GradeStructuredInput): string {
       : 'Official Mark Scheme Points: (Not provided as text; grade using accurate CAIE 9701 chemistry criteria)',
     input.modelAnswer ? `Model Answer:\n${input.modelAnswer}` : '',
     input.explanationEn ? `Examiner Note:\n${input.explanationEn}` : '',
-    `Student Answer:\n${input.studentAnswer}`,
+    input.studentAnswer?.trim()
+      ? `Student Typed Answer:\n${input.studentAnswer.trim()}`
+      : 'Student Typed Answer: (None — see attached handwritten answer photo)',
+    input.studentImageBase64
+      ? 'An image of the student’s handwritten working / organic structural formula / mechanism curly arrows is attached. Carefully inspect all chemical equations, arrows, charges, lone pairs, dipoles, and calculation steps in the image.'
+      : '',
     `Task:`,
     `1. Award integer marks strictly from 0 to ${input.maxMarks} based on the official mark scheme points.`,
     `2. List which mark scheme points were matched ("matchedPoints") and which were missed ("missedPoints").`,
-    `3. Write concise, helpful Chinese examiner feedback ("feedbackZh") explaining what earned marks and what keywords, state symbols, stoichiometry, or reasoning were missing.`,
+    `3. Write concise, helpful Chinese examiner feedback ("feedbackZh") explaining what earned marks and what keywords, state symbols, stoichiometry, curly arrows, or reasoning were missing.`,
     `4. Return ONLY valid JSON with exact keys: {"awardedMarks": number, "feedbackZh": string, "matchedPoints": string[], "missedPoints": string[]}.`,
   ]
     .filter(Boolean)
     .join('\n\n');
+}
+
+function parseImagePayload(
+  raw?: string,
+  mimeHint?: string
+): { mimeType: string; base64Data: string; dataUrl: string } | null {
+  if (!raw || !raw.trim()) return null;
+  const trimmed = raw.trim();
+  const match = trimmed.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (match) {
+    return { mimeType: match[1], base64Data: match[2], dataUrl: trimmed };
+  }
+  const mimeType = mimeHint && mimeHint.startsWith('image/') ? mimeHint : 'image/jpeg';
+  return {
+    mimeType,
+    base64Data: trimmed,
+    dataUrl: `data:${mimeType};base64,${trimmed}`,
+  };
 }
 
 function normalizeOutput(
@@ -202,8 +235,16 @@ async function callOpenAiCompatibleGrader(
 
   const promptText = buildGradingPromptText(input);
   const isReasoner = cfg.model.toLowerCase().includes('reasoner');
+  const parsedImg = parseImagePayload(input.studentImageBase64, input.studentImageMimeType);
 
   async function sendRequest(useJsonFormat: boolean) {
+    const userContent: unknown = parsedImg
+      ? [
+          { type: 'text', text: promptText },
+          { type: 'image_url', image_url: { url: parsedImg.dataUrl } },
+        ]
+      : promptText;
+
     const payload: Record<string, unknown> = {
       model: cfg.model,
       messages: [
@@ -212,7 +253,7 @@ async function callOpenAiCompatibleGrader(
           content:
             'You are a strict Cambridge International AS & A Level Chemistry (9701) examiner. Always respond with valid JSON only.',
         },
-        { role: 'user', content: promptText },
+        { role: 'user', content: userContent },
       ],
       ...(isReasoner ? {} : { temperature: 0.1 }),
       ...(useJsonFormat ? { response_format: { type: 'json_object' } } : {}),
@@ -225,7 +266,7 @@ async function callOpenAiCompatibleGrader(
         Authorization: `Bearer ${cfg.apiKey}`,
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(35000),
     });
   }
 
@@ -267,9 +308,25 @@ async function callGeminiGrader(
     },
   });
 
+  const promptText = buildGradingPromptText(input);
+  const parsedImg = parseImagePayload(input.studentImageBase64, input.studentImageMimeType);
+  const contents = parsedImg
+    ? {
+        parts: [
+          {
+            inlineData: {
+              mimeType: parsedImg.mimeType,
+              data: parsedImg.base64Data,
+            },
+          },
+          { text: promptText },
+        ],
+      }
+    : promptText;
+
   const resp = await ai.models.generateContent({
     model,
-    contents: buildGradingPromptText(input),
+    contents,
     config: {
       responseMimeType: 'application/json',
       responseSchema: {
@@ -306,12 +363,42 @@ export async function gradeStructuredWithAi(
   const deepseek = getDeepSeekConfig();
   const gemini = getGeminiConfig();
 
-  const chosen =
+  const hasImage = Boolean(input.studentImageBase64?.trim());
+  const customSupportsVision = Boolean(
+    custom && /(gpt-4|gpt-5|vl|vision|omni|gemini|claude|qwen2\.5-vl|qwen-vl)/i.test(custom.model)
+  );
+
+  let chosen: GradingProviderId | null =
     (requested === 'openai-compatible' && custom) ||
     (requested === 'deepseek' && deepseek) ||
     (requested === 'gemini' && gemini)
       ? requested
       : defaultProvider;
+
+  // If the student uploaded a handwritten photo, prefer a vision-capable provider automatically
+  if (hasImage) {
+    const chosenSupportsVision =
+      (chosen === 'gemini' && Boolean(gemini)) ||
+      (chosen === 'openai-compatible' && customSupportsVision);
+    if (!chosenSupportsVision) {
+      if (gemini) {
+        chosen = 'gemini';
+      } else if (custom && customSupportsVision) {
+        chosen = 'openai-compatible';
+      } else if (!input.studentAnswer?.trim()) {
+        return {
+          awardedMarks: 0,
+          feedbackZh:
+            '当前配置的模型暂不支持识图批改手写照片。你可以直接对照下方官方 Mark Scheme 自评得分，或在环境变量接入支持视觉的模型（如 Gemini / Qwen-VL / GPT-4o）。',
+          matchedPoints: [],
+          missedPoints: input.markSchemePoints ?? [],
+          providerId: chosen ?? 'unconfigured',
+          providerLabel: '当前模型仅支持纯文本',
+          model: 'text-only',
+        };
+      }
+    }
+  }
 
   if (!chosen) {
     return {

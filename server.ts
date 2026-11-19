@@ -955,6 +955,8 @@ app.post('/api/questions/grade-structured', async (req, res) => {
     explanationEn,
     maxMarks,
     studentAnswer,
+    studentImageBase64,
+    studentImageMimeType,
     preferredProvider,
   } = req.body as {
     promptEn: string;
@@ -962,12 +964,14 @@ app.post('/api/questions/grade-structured', async (req, res) => {
     modelAnswer?: string;
     explanationEn?: string;
     maxMarks: number;
-    studentAnswer: string;
+    studentAnswer?: string;
+    studentImageBase64?: string;
+    studentImageMimeType?: string;
     preferredProvider?: GradingProviderId | 'auto';
   };
 
-  if (!studentAnswer?.trim()) {
-    res.status(400).json({ error: '请输入您的作答内容后再进行评分。' });
+  if (!studentAnswer?.trim() && !studentImageBase64?.trim()) {
+    res.status(400).json({ error: '请输入作答内容或上传手写照片后再进行评分。' });
     return;
   }
 
@@ -978,7 +982,9 @@ app.post('/api/questions/grade-structured', async (req, res) => {
       modelAnswer,
       explanationEn,
       maxMarks: Math.max(1, Number(maxMarks) || 1),
-      studentAnswer,
+      studentAnswer: studentAnswer ?? '',
+      studentImageBase64,
+      studentImageMimeType,
       preferredProvider,
     });
     res.json(result);

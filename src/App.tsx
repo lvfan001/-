@@ -10,6 +10,7 @@ import {
   Menu,
   Play,
   RotateCcw,
+  Share2,
   UserCheck,
   X,
 } from 'lucide-react';
@@ -38,6 +39,12 @@ import {
   buildPresetMockPaper,
   sortChapterQuestionsByDifficulty,
 } from './utils/mockPaperBuilder.ts';
+import {
+  filterChapterQuestions,
+  type AssignmentPayload,
+  type ChapterPracticeFilter,
+  type ChapterResumeMap,
+} from './utils/studyTools.ts';
 import { OverviewView } from './components/OverviewView.tsx';
 import { PaperDownloaderView } from './components/PaperDownloaderView.tsx';
 import { ChapterModuleView } from './components/ChapterModuleView.tsx';
@@ -45,6 +52,7 @@ import { MockExamSetupView } from './components/MockExamSetupView.tsx';
 import { AnalyticsAndPlanView } from './components/AnalyticsAndPlanView.tsx';
 import { QuizWorkspace } from './components/QuizWorkspace.tsx';
 import { AccountResetModal, type SyncProgressData } from './components/AccountResetModal.tsx';
+import { AssignmentModal } from './components/AssignmentModal.tsx';
 
 const STORAGE_KEYS = {
   customQuestions: 'chem9701_custom_questions_v1',
@@ -55,6 +63,7 @@ const STORAGE_KEYS = {
   targetExamDate: 'chem9701_target_date_v1',
   authToken: 'chem9701_auth_token_v1',
   sessionSnapshot: 'chem9701_latest_snapshot_v1',
+  chapterResume: 'chem9701_chapter_resume_v1',
 };
 
 function loadJsonStorage<T>(key: string, fallback: T): T {
@@ -101,9 +110,13 @@ export default function App() {
   const [sessionSnapshot, setSessionSnapshot] = useState<SessionSnapshot | null>(() =>
     loadJsonStorage<SessionSnapshot | null>(STORAGE_KEYS.sessionSnapshot, null)
   );
+  const [chapterResumeMap, setChapterResumeMap] = useState<ChapterResumeMap>(() =>
+    loadJsonStorage<ChapterResumeMap>(STORAGE_KEYS.chapterResume, {})
+  );
 
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [accountModalTab, setAccountModalTab] = useState<'account' | 'reset'>('reset');
+  const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
   const [activeQuiz, setActiveQuiz] = useState<ActiveQuizSession | null>(null);
   const skipNextSyncRef = useRef(false);
 
@@ -134,6 +147,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.sessionSnapshot, JSON.stringify(sessionSnapshot));
   }, [sessionSnapshot]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.chapterResume, JSON.stringify(chapterResumeMap));
+  }, [chapterResumeMap]);
 
   // Hydrate authenticated user & progress on initial mount
   useEffect(() => {
@@ -234,6 +251,28 @@ export default function App() {
     setMockHistory((prev) => [result, ...prev]);
   }
 
+  function handleMockUpdated(
+    updatedResult: MockExamResult,
+    gradedItems: Array<{ questionId: string; isCorrect: boolean; userAnswer: string }>
+  ) {
+    setMockHistory((prev) =>
+      prev.map((m) => (m.id === updatedResult.id ? updatedResult : m))
+    );
+    // Re-derive stats cleanly from pre-session snapshot so self-scoring never double-counts attempts
+    if (sessionSnapshot && activeQuiz && sessionSnapshot.sessionId === activeQuiz.id) {
+      let nextStats = deepClone(sessionSnapshot.preStatsMap);
+      for (const item of gradedItems) {
+        nextStats = recordQuestionAttempt(
+          nextStats,
+          item.questionId,
+          item.isCorrect,
+          item.userAnswer
+        );
+      }
+      setStatsMap(nextStats);
+    }
+  }
+
   function handleRollbackLatestSession() {
     if (!sessionSnapshot) return;
     setStatsMap(deepClone(sessionSnapshot.preStatsMap));
@@ -241,20 +280,103 @@ export default function App() {
     setSessionSnapshot((prev) => (prev ? { ...prev, recordedAttemptsCount: 0 } : null));
   }
 
-  function handleStartChapterQuiz(chapterId: number) {
+  function handleStartChapterQuiz(
+    chapterId: number,
+    options?: { filter?: ChapterPracticeFilter; resume?: boolean }
+  ) {
     const ch = getChapterById(chapterId);
-    // Strict textbook single-chapter isolation, sorted Core (front-loaded) -> Standard -> Challenging (back-loaded)
-    const single = sortChapterQuestionsByDifficulty(
-      allQuestions.filter((q) => q.chapters.length === 1 && q.chapters[0] === chapterId)
-    );
+    const list = options?.filter
+      ? filterChapterQuestions(allQuestions, chapterId, options.filter, statsMap)
+      : sortChapterQuestionsByDifficulty(
+          allQuestions.filter((q) => q.chapters.length === 1 && q.chapters[0] === chapterId)
+        );
+    if (list.length === 0) return;
+
+    const resumeIdx =
+      options?.resume && !options?.filter
+        ? Math.min(chapterResumeMap[chapterId]?.lastIndex ?? 0, list.length - 1)
+        : 0;
 
     startQuizSession({
       id: `quiz-ch-${chapterId}-${Date.now()}`,
       title: `${ch?.code ?? `Ch ${chapterId}`} · ${ch?.titleEn ?? ''}`,
-      subtitle: `单章阶梯练习（基础前置 → 标准真题 → 拔高后置 · 严格无超前考点）`,
+      subtitle: options?.filter
+        ? `按条件筛选单章练习（共 ${list.length} 题 · 基础前置 → 拔高后置）`
+        : `单章阶梯练习（基础前置 → 标准真题 → 拔高后置 · 严格无超前考点）`,
       mode: 'practice',
-      questions: single,
+      questions: list,
+      initialQuestionIndex: resumeIdx,
+      chapterIdForResume: options?.filter ? undefined : chapterId,
     });
+  }
+
+  function handleStartDueMistakesQuiz(questionIds: string[]) {
+    const idSet = new Set(questionIds);
+    const list = allQuestions.filter((q) => idSet.has(q.id));
+    if (list.length === 0) return;
+    startQuizSession({
+      id: `quiz-ebbinghaus-${Date.now()}`,
+      title: '艾宾浩斯今日回炉错题',
+      subtitle: `1 / 3 / 7 天遗忘曲线回炉 · 连续答对 2 次自动清零 · 共 ${list.length} 题`,
+      mode: 'practice',
+      questions: list,
+    });
+  }
+
+  function handleLaunchAssignment(payload: AssignmentPayload) {
+    if (payload.kind === 'chapter' && payload.chapterId) {
+      const ch = getChapterById(payload.chapterId);
+      const list = payload.filter
+        ? filterChapterQuestions(allQuestions, payload.chapterId, payload.filter, statsMap)
+        : sortChapterQuestionsByDifficulty(
+            allQuestions.filter(
+              (q) => q.chapters.length === 1 && q.chapters[0] === payload.chapterId
+            )
+          );
+      if (list.length === 0) return;
+      startQuizSession({
+        id: `assign-ch-${Date.now()}`,
+        title: payload.title,
+        subtitle:
+          payload.teacherNote ??
+          `作业任务 · ${ch?.code ?? `Ch ${payload.chapterId}`} (${list.length} 题)`,
+        mode: 'practice',
+        questions: list,
+      });
+      return;
+    }
+
+    if (payload.kind === 'mock-preset' && payload.presetId) {
+      const preset = MOCK_PRESETS.find((p) => p.id === payload.presetId) ?? MOCK_PRESETS[0];
+      const built = buildPresetMockPaper(preset, allQuestions, { yearRange: 'all' });
+      startQuizSession({
+        id: `assign-mock-${Date.now()}`,
+        title: payload.title,
+        subtitle:
+          payload.teacherNote ??
+          `${preset.titleZh} · ${built.mcqCount} 选 + ${built.structuredCount} 简答小问 (${built.totalMarks} 分)`,
+        mode: 'mock',
+        paperModeLabel: preset.paperMode,
+        questions: built.questions,
+        durationSeconds: preset.durationMinutes * 60,
+      });
+      return;
+    }
+
+    if (payload.kind === 'question-ids' && payload.questionIds?.length) {
+      const byId = new Map(allQuestions.map((q) => [q.id, q]));
+      const list = payload.questionIds
+        .map((id) => byId.get(id))
+        .filter((q): q is Question => Boolean(q));
+      if (list.length === 0) return;
+      startQuizSession({
+        id: `assign-custom-${Date.now()}`,
+        title: payload.title,
+        subtitle: payload.teacherNote ?? `指定真题专练 · 共 ${list.length} 题`,
+        mode: 'practice',
+        questions: list,
+      });
+    }
   }
 
   function handleStartModuleQuiz(moduleId: string, timedMock = false) {
@@ -512,6 +634,13 @@ export default function App() {
           {!activeQuiz && (
             <div className="flex items-center gap-2.5 shrink-0">
               <button
+                onClick={() => setAssignmentModalOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 bg-[#18181A] px-3 py-2 text-xs font-medium text-[#F8F7F4]/85 transition-colors hover:border-[#E0A458]/60 hover:text-[#E0A458] whitespace-nowrap shrink-0"
+              >
+                <Share2 className="h-3.5 w-3.5 text-[#E0A458]" />
+                作业码
+              </button>
+              <button
                 onClick={() => {
                   setAccountModalTab('reset');
                   setAccountModalOpen(true);
@@ -540,7 +669,7 @@ export default function App() {
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[#E0A458] px-3.5 py-2 text-xs font-bold text-[#111113] transition-colors hover:bg-[#EBB66E] whitespace-nowrap shrink-0"
               >
                 <Play className="h-3.5 w-3.5" />
-                快速诊断模考
+                AS 小模考
               </button>
             </div>
           )}
@@ -587,6 +716,21 @@ export default function App() {
               onExit={() => setActiveQuiz(null)}
               onRecordAttempt={handleRecordAttempt}
               onMockCompleted={handleMockCompleted}
+              onMockUpdated={handleMockUpdated}
+              onQuestionIndexChange={(idx, qId) => {
+                if (activeQuiz.chapterIdForResume) {
+                  const chId = activeQuiz.chapterIdForResume;
+                  setChapterResumeMap((prev) => ({
+                    ...prev,
+                    [chId]: {
+                      lastIndex: idx,
+                      lastQuestionId: qId,
+                      totalQuestions: activeQuiz.questions.length,
+                      updatedAt: new Date().toISOString(),
+                    },
+                  }));
+                }
+              }}
               onRollbackCurrentSession={handleRollbackLatestSession}
             />
           ) : activeView === 'overview' ? (
@@ -598,7 +742,7 @@ export default function App() {
               targetExamDate={targetExamDate}
               downloadedPaperCount={downloadedPapers.length}
               onNavigate={setActiveView}
-              onStartChapterQuiz={handleStartChapterQuiz}
+              onStartChapterQuiz={(chId) => handleStartChapterQuiz(chId)}
               onOpenModulesPage={() => {
                 setFocusMockModules(true);
                 setActiveView('mock');
@@ -611,7 +755,9 @@ export default function App() {
           ) : activeView === 'practice' ? (
             <ChapterModuleView
               questions={allQuestions}
+              statsMap={statsMap}
               chapterSummaries={chapterSummaries}
+              chapterResumeMap={chapterResumeMap}
               onStartChapterQuiz={handleStartChapterQuiz}
               onGoToMockExam={() => {
                 setFocusMockModules(true);
@@ -650,6 +796,8 @@ export default function App() {
               onPlanGenerated={setRevisionPlan}
               onToggleTask={handleToggleRevisionTask}
               onStartMistakesQuiz={handleStartMistakesQuiz}
+              onStartDueMistakesQuiz={handleStartDueMistakesQuiz}
+              onOpenAssignmentModal={() => setAssignmentModalOpen(true)}
               onStartTaskQuiz={handleStartTaskQuiz}
             />
           )}
@@ -695,6 +843,13 @@ export default function App() {
           setRevisionPlan(clearedProgress.revisionPlan ?? null);
           setSessionSnapshot(null);
         }}
+      />
+      <AssignmentModal
+        isOpen={assignmentModalOpen}
+        onClose={() => setAssignmentModalOpen(false)}
+        questions={allQuestions}
+        statsMap={statsMap}
+        onLaunchAssignment={handleLaunchAssignment}
       />
     </div>
   );

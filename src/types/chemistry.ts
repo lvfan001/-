@@ -136,6 +136,7 @@ export interface QuestionStat {
   lastAttemptAt: string;
   lastWrongAt?: string;
   lastCorrect: boolean;
+  consecutiveCorrect?: number; // Consecutive correct streak; >=2 auto-clears from active mistakes
   wrongHistory: WrongAttemptEntry[];
 }
 
@@ -231,4 +232,6 @@ export interface ActiveQuizSession {
   questions: Question[];
   durationSeconds?: number; // for mock mode
   realPaperFiles?: RealPaperFileRef[];
+  initialQuestionIndex?: number; // For resuming chapter progress
+  chapterIdForResume?: number; // Tracks resume bookmark when practicing a single chapter
 }

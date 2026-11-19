@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
   Award,
+  Ban,
+  BookOpen,
+  Camera,
   CheckCircle2,
   Clock,
   Download,
@@ -11,8 +14,10 @@ import {
   Flag,
   Languages,
   Loader2,
+  Printer,
   RotateCcw,
   Sparkles,
+  Trash2,
   X,
   XCircle,
 } from 'lucide-react';
@@ -26,7 +31,10 @@ import {
   getChapterById,
   getModuleById,
 } from '../data/syllabus.ts';
+import { CHEM_QUICK_SYMBOLS } from '../data/dataBooklet.ts';
 import { ChemDiagram, ChemText, ClippedQuestionImage } from './ChemVisuals.tsx';
+import { DataBookletDrawer } from './DataBookletDrawer.tsx';
+import { PrintableWorksheetModal } from './PrintableWorksheetModal.tsx';
 
 interface QuizWorkspaceProps {
   session: ActiveQuizSession;
@@ -34,12 +42,18 @@ interface QuizWorkspaceProps {
   onExit: () => void;
   onRecordAttempt: (questionId: string, isCorrect: boolean, userAnswer: string) => void;
   onMockCompleted: (result: MockExamResult) => void;
+  onMockUpdated?: (
+    result: MockExamResult,
+    gradedItems: Array<{ questionId: string; isCorrect: boolean; userAnswer: string }>
+  ) => void;
+  onQuestionIndexChange?: (index: number, questionId: string) => void;
   onRollbackCurrentSession?: () => void;
 }
 
 interface AnswerState {
   selectedOption?: 'A' | 'B' | 'C' | 'D';
   writtenText?: string;
+  photoDataUrl?: string;
   checkedPointIndices?: number[];
   msRevealed?: boolean;
   selfScore?: number;
@@ -62,6 +76,36 @@ interface GradingProviderOption {
   label: string;
   model: string;
   configured: boolean;
+  supportsVision?: boolean;
+}
+
+async function compressHandwrittenPhoto(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('读取图片失败'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('解析图片失败'));
+      img.onload = () => {
+        const maxDim = 1400;
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(String(reader.result));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 export function QuizWorkspace({
@@ -70,16 +114,31 @@ export function QuizWorkspace({
   onExit,
   onRecordAttempt,
   onMockCompleted,
+  onMockUpdated,
+  onQuestionIndexChange,
   onRollbackCurrentSession,
 }: QuizWorkspaceProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const initialIdx = Math.min(
+    Math.max(0, session.initialQuestionIndex ?? 0),
+    Math.max(0, session.questions.length - 1)
+  );
+  const [currentIndex, setCurrentIndex] = useState(initialIdx);
   const [showChinese, setShowChinese] = useState(false);
   const [answers, setAnswers] = useState<Record<string, AnswerState>>({});
   const [flagged, setFlagged] = useState<Record<string, boolean>>({});
+  const [eliminatedOpts, setEliminatedOpts] = useState<
+    Record<string, Partial<Record<'A' | 'B' | 'C' | 'D', boolean>>>
+  >({});
   const [secondsLeft, setSecondsLeft] = useState(session.durationSeconds ?? 0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [mockReport, setMockReport] = useState<MockExamResult | null>(null);
   const [gradingAi, setGradingAi] = useState(false);
+  const [batchGradingInfo, setBatchGradingInfo] = useState<{
+    running: boolean;
+    done: number;
+    total: number;
+  } | null>(null);
+  const [gradingQuestionId, setGradingQuestionId] = useState<string | null>(null);
   const [aiGradeError, setAiGradeError] = useState<string | null>(null);
   const [gradingProviders, setGradingProviders] = useState<GradingProviderOption[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<string>('auto');
@@ -87,10 +146,20 @@ export function QuizWorkspace({
   const [rolledBackNotice, setRolledBackNotice] = useState(false);
   const [showExtractedText, setShowExtractedText] = useState(false);
   const [pdfPreview, setPdfPreview] = useState<{ title: string; fileName: string } | null>(null);
+  const [bookletOpen, setBookletOpen] = useState(false);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const questions = session.questions;
   const currentQ: Question | undefined = questions[currentIndex];
   const currentAns: AnswerState = currentQ ? answers[currentQ.id] ?? {} : {};
+
+  useEffect(() => {
+    if (currentQ && !mockReport) {
+      onQuestionIndexChange?.(currentIndex, currentQ.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, currentQ?.id, mockReport]);
 
   function getDifficultyBadge(diff: Question['difficulty']): { label: string; cls: string } {
     if (diff === 'Core') {
@@ -253,51 +322,108 @@ export function QuizWorkspace({
     );
   }
 
+  function insertSymbolIntoAnswer(symbol: string) {
+    if (!currentQ) return;
+    const el = textareaRef.current;
+    const existing = currentAns.writtenText ?? '';
+    if (!el) {
+      updateAnswer(currentQ.id, { writtenText: existing + symbol });
+      return;
+    }
+    const start = el.selectionStart ?? existing.length;
+    const end = el.selectionEnd ?? existing.length;
+    const next = existing.slice(0, start) + symbol + existing.slice(end);
+    updateAnswer(currentQ.id, { writtenText: next });
+    window.requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + symbol.length;
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
+  async function handleUploadHandwrittenPhoto(
+    qId: string,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const dataUrl = await compressHandwrittenPhoto(file);
+      updateAnswer(qId, { photoDataUrl: dataUrl });
+    } catch (err) {
+      setAiGradeError(err instanceof Error ? err.message : '图片处理失败，请重试。');
+    }
+  }
+
+  function toggleEliminateOption(qId: string, label: 'A' | 'B' | 'C' | 'D') {
+    setEliminatedOpts((prev) => ({
+      ...prev,
+      [qId]: {
+        ...(prev[qId] ?? {}),
+        [label]: !prev[qId]?.[label],
+      },
+    }));
+  }
+
+  async function requestAiGradeForQuestion(targetQ: Question, ans: AnswerState) {
+    const resp = await fetch('/api/questions/grade-structured', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        promptEn: targetQ.promptEn,
+        markSchemePoints: targetQ.markSchemePoints ?? [],
+        modelAnswer: targetQ.modelAnswer,
+        explanationEn: targetQ.explanationEn,
+        maxMarks: targetQ.marks,
+        studentAnswer: ans.writtenText ?? '',
+        studentImageBase64: ans.photoDataUrl,
+        preferredProvider: selectedProvider,
+      }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      throw new Error(data.error || 'AI 阅卷请求失败，请检查服务端模型配置或对照 MS 自评。');
+    }
+    return data as NonNullable<AnswerState['aiGrade']>;
+  }
+
   async function handleAiGradeStructured() {
-    if (!currentQ || !currentAns.writtenText?.trim()) return;
+    if (!currentQ || (!currentAns.writtenText?.trim() && !currentAns.photoDataUrl)) return;
     const targetQ = currentQ;
     setGradingAi(true);
     setAiGradeError(null);
     try {
-      const resp = await fetch('/api/questions/grade-structured', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          promptEn: targetQ.promptEn,
-          markSchemePoints: targetQ.markSchemePoints ?? [],
-          modelAnswer: targetQ.modelAnswer,
-          explanationEn: targetQ.explanationEn,
-          maxMarks: targetQ.marks,
-          studentAnswer: currentAns.writtenText,
-          preferredProvider: selectedProvider,
-        }),
-      });
-      const data = await resp.json();
-      if (!resp.ok) {
-        setAiGradeError(data.error || 'AI 阅卷请求失败，请检查服务端模型配置或对照 MS 自评。');
-        return;
-      }
+      const data = await requestAiGradeForQuestion(targetQ, currentAns);
       updateAnswer(targetQ.id, {
         aiGrade: data,
         msRevealed: true,
         ...(typeof data.awardedMarks === 'number' ? { selfScore: data.awardedMarks } : {}),
       });
     } catch (err) {
-      setAiGradeError(`AI 阅卷网络异常：${err instanceof Error ? err.message : '未知错误'}`);
+      setAiGradeError(err instanceof Error ? err.message : 'AI 阅卷异常');
     } finally {
       setGradingAi(false);
     }
   }
 
-  function handleSubmitMock() {
+  function buildMockResultFromAnswers(
+    ansMap: Record<string, AnswerState>,
+    existingId?: string,
+    existingCompletedAt?: string
+  ): {
+    result: MockExamResult;
+    gradedItems: Array<{ questionId: string; isCorrect: boolean; userAnswer: string }>;
+  } {
     let totalMarks = 0;
     let earnedMarks = 0;
     const chapterMap = new Map<number, { attempts: number; wrong: number }>();
     const wrongIds: string[] = [];
+    const gradedItems: Array<{ questionId: string; isCorrect: boolean; userAnswer: string }> = [];
 
     for (const q of questions) {
       totalMarks += q.marks;
-      const ans = answers[q.id] ?? {};
+      const ans = ansMap[q.id] ?? {};
       let qCorrect = false;
       let qEarned = 0;
       let userAnsSummary = '未作答';
@@ -309,17 +435,22 @@ export function QuizWorkspace({
       } else {
         const pts = q.markSchemePoints?.length ?? q.marks;
         const checked = ans.checkedPointIndices?.length ?? 0;
-        qEarned =
-          ans.aiGrade?.awardedMarks !== undefined
-            ? ans.aiGrade.awardedMarks
-            : Math.min(q.marks, Math.round((checked / Math.max(1, pts)) * q.marks));
+        if (ans.selfScore !== undefined) {
+          qEarned = Math.max(0, Math.min(q.marks, Math.round(ans.selfScore)));
+        } else if (ans.aiGrade?.awardedMarks !== undefined) {
+          qEarned = Math.max(0, Math.min(q.marks, Math.round(ans.aiGrade.awardedMarks)));
+        } else {
+          qEarned = Math.min(q.marks, Math.round((checked / Math.max(1, pts)) * q.marks));
+        }
         qCorrect = qEarned >= Math.ceil(q.marks * 0.6);
-        userAnsSummary = ans.writtenText?.trim() || '未填写';
+        userAnsSummary =
+          ans.writtenText?.trim() ||
+          (ans.photoDataUrl ? '[手写照片作答]' : `自评 ${qEarned}/${q.marks} 分`);
       }
 
       earnedMarks += qEarned;
       if (!qCorrect) wrongIds.push(q.id);
-      onRecordAttempt(q.id, qCorrect, userAnsSummary);
+      gradedItems.push({ questionId: q.id, isCorrect: qCorrect, userAnswer: userAnsSummary });
 
       for (const chId of q.chapters) {
         const prev = chapterMap.get(chId) ?? { attempts: 0, wrong: 0 };
@@ -332,10 +463,10 @@ export function QuizWorkspace({
 
     const percentage = totalMarks > 0 ? Math.round((earnedMarks / totalMarks) * 100) : 0;
     const result: MockExamResult = {
-      id: `mock-${Date.now()}`,
+      id: existingId ?? `mock-${Date.now()}`,
       title: session.title,
       paperMode: session.paperModeLabel ?? 'Full Diagnostic Mock',
-      completedAt: new Date().toISOString(),
+      completedAt: existingCompletedAt ?? new Date().toISOString(),
       durationSeconds: elapsedSeconds,
       totalMarks,
       earnedMarks,
@@ -350,8 +481,112 @@ export function QuizWorkspace({
       wrongQuestionIds: wrongIds,
     };
 
+    return { result, gradedItems };
+  }
+
+  function handleSubmitMock() {
+    const { result, gradedItems } = buildMockResultFromAnswers(answers);
+    for (const item of gradedItems) {
+      onRecordAttempt(item.questionId, item.isCorrect, item.userAnswer);
+    }
     setMockReport(result);
     onMockCompleted(result);
+  }
+
+  function handleUpdateMockStructuredScore(qId: string, score: number) {
+    if (!mockReport) return;
+    const nextAnswers: Record<string, AnswerState> = {
+      ...answers,
+      [qId]: { ...(answers[qId] ?? {}), selfScore: score, msRevealed: true },
+    };
+    setAnswers(nextAnswers);
+    const { result, gradedItems } = buildMockResultFromAnswers(
+      nextAnswers,
+      mockReport.id,
+      mockReport.completedAt
+    );
+    setMockReport(result);
+    onMockUpdated?.(result, gradedItems);
+  }
+
+  async function handleAiGradeSingleInMockReport(q: Question) {
+    if (!mockReport) return;
+    const ans = answers[q.id] ?? {};
+    if (!ans.writtenText?.trim() && !ans.photoDataUrl) return;
+    setGradingQuestionId(q.id);
+    setAiGradeError(null);
+    try {
+      const data = await requestAiGradeForQuestion(q, ans);
+      const nextAnswers: Record<string, AnswerState> = {
+        ...answers,
+        [q.id]: {
+          ...ans,
+          aiGrade: data,
+          selfScore: data.awardedMarks,
+          msRevealed: true,
+        },
+      };
+      setAnswers(nextAnswers);
+      const { result, gradedItems } = buildMockResultFromAnswers(
+        nextAnswers,
+        mockReport.id,
+        mockReport.completedAt
+      );
+      setMockReport(result);
+      onMockUpdated?.(result, gradedItems);
+    } catch (err) {
+      setAiGradeError(err instanceof Error ? err.message : 'AI 批改失败');
+    } finally {
+      setGradingQuestionId(null);
+    }
+  }
+
+  async function handleBatchAiGradeMockStructured() {
+    if (!mockReport) return;
+    const targets = questions.filter(
+      (q) =>
+        q.type === 'structured' &&
+        (answers[q.id]?.writtenText?.trim() || answers[q.id]?.photoDataUrl) &&
+        !answers[q.id]?.aiGrade
+    );
+    if (targets.length === 0) return;
+
+    setAiGradeError(null);
+    setBatchGradingInfo({ running: true, done: 0, total: targets.length });
+    let workingAnswers = { ...answers };
+
+    for (let i = 0; i < targets.length; i++) {
+      const q = targets[i];
+      const ans = workingAnswers[q.id] ?? {};
+      try {
+        const data = await requestAiGradeForQuestion(q, ans);
+        workingAnswers = {
+          ...workingAnswers,
+          [q.id]: {
+            ...ans,
+            aiGrade: data,
+            selfScore: data.awardedMarks,
+            msRevealed: true,
+          },
+        };
+        setAnswers(workingAnswers);
+        const { result, gradedItems } = buildMockResultFromAnswers(
+          workingAnswers,
+          mockReport.id,
+          mockReport.completedAt
+        );
+        setMockReport(result);
+        onMockUpdated?.(result, gradedItems);
+      } catch (err) {
+        setAiGradeError(
+          `第 ${i + 1} 问 (${q.paperCode} Q${q.questionNumber}${q.subPart ?? ''}) AI 批改失败：${
+            err instanceof Error ? err.message : '未知错误'
+          }`
+        );
+      }
+      setBatchGradingInfo({ running: true, done: i + 1, total: targets.length });
+    }
+    setBatchGradingInfo(null);
   }
 
   function formatTimer(sec: number): string {
@@ -398,6 +633,13 @@ export function QuizWorkspace({
                   </button>
                 </div>
               ))}
+            <button
+              onClick={() => setPrintModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#18181A] px-3 py-2 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458]/50 hover:text-[#E0A458] whitespace-nowrap shrink-0"
+            >
+              <Printer className="h-3.5 w-3.5" />
+              打印 / PDF 试卷
+            </button>
             <button
               onClick={() => setShowChinese((v) => !v)}
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#18181A] px-3 py-2 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458]/50 hover:text-[#E0A458] whitespace-nowrap shrink-0"
@@ -498,6 +740,75 @@ export function QuizWorkspace({
           </div>
         )}
 
+        {questions.some((q) => q.type === 'structured') && (() => {
+          const structQs = questions.filter((q) => q.type === 'structured');
+          const reviewedCount = structQs.filter(
+            (q) =>
+              answers[q.id]?.selfScore !== undefined ||
+              answers[q.id]?.aiGrade !== undefined
+          ).length;
+          const aiGradableCount = structQs.filter(
+            (q) =>
+              (answers[q.id]?.writtenText?.trim() || answers[q.id]?.photoDataUrl) &&
+              !answers[q.id]?.aiGrade
+          ).length;
+          return (
+            <div className="rounded-xl border border-[#E0A458]/35 bg-[#E0A458]/[0.08] p-5">
+              <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                <div>
+                  <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#E0A458]">
+                    POST-MOCK STRUCTURED REVIEW · 实时重算等级
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-[#F8F7F4]">
+                    简答小问复核：已完成 {reviewedCount} / {structQs.length} 问
+                  </div>
+                  <p className="mt-0.5 text-xs text-[#F8F7F4]/65">
+                    对照下方每问官方 MS 截图点选得分，或点击一键 AI 批量批改，总分、CAIE 等级与错题库将实时重新校准。
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {gradingProviders.length > 1 && (
+                    <select
+                      value={selectedProvider}
+                      onChange={(e) => setSelectedProvider(e.target.value)}
+                      className="rounded-lg border border-white/15 bg-[#111113] px-2.5 py-2 text-xs text-[#F8F7F4]"
+                    >
+                      {gradingProviders.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label} {p.supportsVision ? '(支持识图)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleBatchAiGradeMockStructured}
+                    disabled={aiGradableCount === 0 || Boolean(batchGradingInfo?.running)}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[#E0A458] px-4 py-2 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E] disabled:opacity-40 whitespace-nowrap"
+                  >
+                    {batchGradingInfo?.running ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        批量批改中 ({batchGradingInfo.done}/{batchGradingInfo.total})
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3.5 w-3.5" />
+                        一键 AI 批量批改已写简答 ({aiGradableCount})
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+              {aiGradeError && (
+                <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                  {aiGradeError}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         <div className="space-y-4">
           <h2 className="text-base font-semibold text-[#F8F7F4]">
             逐题解析与评分标准复盘（错题已自动同步至错题频率统计）
@@ -505,6 +816,10 @@ export function QuizWorkspace({
           {questions.map((q, idx) => {
             const ans = answers[q.id] ?? {};
             const isWrong = mockReport.wrongQuestionIds.includes(q.id);
+            const currentStructScore =
+              ans.selfScore !== undefined
+                ? ans.selfScore
+                : ans.aiGrade?.awardedMarks;
             return (
               <div key={q.id} className="rounded-xl border border-white/10 bg-[#18181A] p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -520,11 +835,19 @@ export function QuizWorkspace({
                   >
                     {isWrong ? (
                       <>
-                        <XCircle className="h-3.5 w-3.5" /> 需巩固
+                        <XCircle className="h-3.5 w-3.5" />{' '}
+                        {q.type === 'structured'
+                          ? currentStructScore !== undefined
+                            ? `得 ${currentStructScore}/${q.marks} 分 · 需巩固`
+                            : '待核对 MS 自评'
+                          : '需巩固'}
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 className="h-3.5 w-3.5" /> 达标
+                        <CheckCircle2 className="h-3.5 w-3.5" />{' '}
+                        {q.type === 'structured' && currentStructScore !== undefined
+                          ? `得 ${currentStructScore}/${q.marks} 分 · 达标`
+                          : '达标'}
                       </>
                     )}
                   </span>
@@ -569,6 +892,90 @@ export function QuizWorkspace({
                     你的选择：{ans.selectedOption ?? '未选'} · 正确答案：{q.correctOption}
                   </p>
                 )}
+                {q.type === 'structured' && (
+                  <div className="mt-3 space-y-3 rounded-xl border border-white/10 bg-[#141416] p-3.5">
+                    <div className="text-xs font-semibold text-[#F8F7F4]/80">你的作答内容：</div>
+                    {ans.writtenText?.trim() ? (
+                      <p className="whitespace-pre-line rounded-lg border border-white/[0.06] bg-[#111113] p-2.5 text-xs text-[#F8F7F4]/85">
+                        {ans.writtenText}
+                      </p>
+                    ) : !ans.photoDataUrl ? (
+                      <p className="text-xs text-[#F8F7F4]/45">（本题未填写文字或上传手写照片）</p>
+                    ) : null}
+                    {ans.photoDataUrl && (
+                      <img
+                        src={ans.photoDataUrl}
+                        alt="学生手写答案照片"
+                        className="max-h-72 rounded-lg border border-white/15 bg-white object-contain"
+                      />
+                    )}
+
+                    {ans.aiGrade && (
+                      <div className="rounded-lg border border-[#E0A458]/30 bg-[#E0A458]/10 p-3 text-xs text-[#F8F7F4]/85 space-y-1">
+                        <div className="font-mono font-semibold text-[#E0A458]">
+                          AI 批改建议：{ans.aiGrade.awardedMarks} / {q.marks} 分
+                          {ans.aiGrade.providerLabel ? ` · ${ans.aiGrade.providerLabel}` : ''}
+                        </div>
+                        <p>{ans.aiGrade.feedbackZh}</p>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="mr-1 font-mono text-[11px] text-[#F8F7F4]/60">
+                          核对 MS 得分：
+                        </span>
+                        {q.marks <= 10 ? (
+                          Array.from({ length: q.marks + 1 }, (_, s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => handleUpdateMockStructuredScore(q.id, s)}
+                              className={`rounded-md border px-2.5 py-1 font-mono text-xs font-semibold transition-colors ${
+                                currentStructScore === s
+                                  ? 'border-[#E0A458] bg-[#E0A458] text-[#111113]'
+                                  : 'border-white/12 bg-[#18181A] text-[#F8F7F4]/80 hover:border-[#E0A458]'
+                              }`}
+                            >
+                              {s}分
+                            </button>
+                          ))
+                        ) : (
+                          <input
+                            type="number"
+                            min={0}
+                            max={q.marks}
+                            value={currentStructScore ?? ''}
+                            onChange={(e) =>
+                              handleUpdateMockStructuredScore(
+                                q.id,
+                                Math.max(0, Math.min(q.marks, Number(e.target.value) || 0))
+                              )
+                            }
+                            placeholder={`0-${q.marks}`}
+                            className="w-20 rounded border border-white/15 bg-[#111113] px-2 py-1 font-mono text-xs text-[#F8F7F4]"
+                          />
+                        )}
+                      </div>
+
+                      {(ans.writtenText?.trim() || ans.photoDataUrl) && (
+                        <button
+                          type="button"
+                          onClick={() => handleAiGradeSingleInMockReport(q)}
+                          disabled={gradingQuestionId === q.id || Boolean(batchGradingInfo?.running)}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-[#E0A458]/40 bg-[#E0A458]/10 px-3 py-1.5 text-xs font-medium text-[#E0A458] hover:bg-[#E0A458] hover:text-[#111113] disabled:opacity-40"
+                        >
+                          {gradingQuestionId === q.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-3.5 w-3.5" />
+                          )}
+                          AI 批改本题
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {q.type === 'structured' && q.markSchemePoints && !q.msImageUrls?.length && (
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-[#F8F7F4]/75">
                     {q.markSchemePoints.map((pt, i) => (
@@ -609,6 +1016,14 @@ export function QuizWorkspace({
             );
           })}
         </div>
+
+        <PrintableWorksheetModal
+          isOpen={printModalOpen}
+          onClose={() => setPrintModalOpen(false)}
+          title={mockReport.title}
+          subtitle={`${mockReport.paperMode} · 预估等级 ${mockReport.estimatedGrade} (${mockReport.percentage}%)`}
+          questions={questions}
+        />
 
         {pdfPreview && (
           <div
@@ -729,6 +1144,15 @@ export function QuizWorkspace({
               ))}
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={() => setBookletOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#E0A458]/35 bg-[#E0A458]/10 px-3 py-1.5 text-xs font-medium text-[#E0A458] hover:bg-[#E0A458] hover:text-[#111113] whitespace-nowrap shrink-0"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Data Booklet 速查
+          </button>
 
           <button
             onClick={() => setShowChinese((v) => !v)}
@@ -892,8 +1316,11 @@ export function QuizWorkspace({
             currentQ.clippedImageUrls?.length &&
             currentQ.options.every((o) => o.text.includes('见原卷截图')) ? (
               <div className="mt-5">
-                <div className="mb-2 text-xs font-medium text-[#F8F7F4]/55">
-                  请对照原卷截图选择答案：
+                <div className="mb-2 flex items-center justify-between text-xs text-[#F8F7F4]/55">
+                  <span>请对照原卷截图选择答案：</span>
+                  <span className="font-mono text-[11px] text-[#F8F7F4]/40">
+                    点右上角 ⊘ 可划掉排除项
+                  </span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {currentQ.options.map((opt) => {
@@ -901,6 +1328,7 @@ export function QuizWorkspace({
                     const isRevealed =
                       session.mode === 'practice' && currentAns.submittedInPractice;
                     const isCorrectOpt = currentQ.correctOption === opt.label;
+                    const isEliminated = Boolean(eliminatedOpts[currentQ.id]?.[opt.label]);
 
                     let btnClass =
                       'border-white/12 bg-[#141416] hover:border-[#E0A458]/60 text-[#F8F7F4]';
@@ -912,22 +1340,42 @@ export function QuizWorkspace({
                       }
                     } else if (isSelected) {
                       btnClass = 'border-[#E0A458] bg-[#E0A458]/15 text-[#E0A458]';
+                    } else if (isEliminated) {
+                      btnClass = 'border-white/[0.06] bg-[#111113] text-[#F8F7F4]/30 line-through';
                     }
 
                     return (
-                      <button
-                        key={opt.label}
-                        onClick={() => handleSelectMcq(opt.label)}
-                        className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-3 font-mono text-sm font-semibold transition-colors ${btnClass}`}
-                      >
-                        <span>{opt.label}</span>
-                        {isRevealed && isCorrectOpt && (
-                          <span className="text-xs font-medium text-emerald-300">✓ 正确</span>
+                      <div key={opt.label} className="relative">
+                        <button
+                          onClick={() => handleSelectMcq(opt.label)}
+                          className={`flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 font-mono text-sm font-semibold transition-colors ${btnClass}`}
+                        >
+                          <span>{opt.label}</span>
+                          {isRevealed && isCorrectOpt && (
+                            <span className="text-xs font-medium text-emerald-300">✓ 正确</span>
+                          )}
+                          {isRevealed && isSelected && !isCorrectOpt && (
+                            <span className="text-xs font-medium text-red-300">✗ 误选</span>
+                          )}
+                        </button>
+                        {!isRevealed && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleEliminateOption(currentQ.id, opt.label);
+                            }}
+                            title={isEliminated ? '取消排除' : '划掉排除此项'}
+                            className={`absolute right-1.5 top-1.5 rounded p-1 transition-colors ${
+                              isEliminated
+                                ? 'text-red-300 bg-red-500/15'
+                                : 'text-[#F8F7F4]/30 hover:text-[#F8F7F4]/75'
+                            }`}
+                          >
+                            <Ban className="h-3 w-3" />
+                          </button>
                         )}
-                        {isRevealed && isSelected && !isCorrectOpt && (
-                          <span className="text-xs font-medium text-red-300">✗ 误选</span>
-                        )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -939,6 +1387,7 @@ export function QuizWorkspace({
                   const isRevealed =
                     session.mode === 'practice' && currentAns.submittedInPractice;
                   const isCorrectOpt = currentQ.correctOption === opt.label;
+                  const isEliminated = Boolean(eliminatedOpts[currentQ.id]?.[opt.label]);
 
                   let btnClass =
                     'border-white/12 bg-[#141416] hover:border-[#E0A458]/50 text-[#F8F7F4]';
@@ -950,27 +1399,44 @@ export function QuizWorkspace({
                     }
                   } else if (isSelected) {
                     btnClass = 'border-[#E0A458] bg-[#E0A458]/15 text-[#E0A458]';
+                  } else if (isEliminated) {
+                    btnClass = 'border-white/[0.06] bg-[#111113] text-[#F8F7F4]/30 line-through';
                   }
 
                   return (
-                    <button
-                      key={opt.label}
-                      onClick={() => handleSelectMcq(opt.label)}
-                      className={`flex w-full items-center gap-3.5 rounded-xl border px-4 py-3 text-left text-sm transition-colors ${btnClass}`}
-                    >
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-current/25 font-mono text-xs font-semibold">
-                        {opt.label}
-                      </span>
-                      <span className="flex-1">
-                        <ChemText text={opt.text} />
-                      </span>
-                      {isRevealed && isCorrectOpt && (
-                        <span className="text-xs font-semibold text-emerald-300">正确</span>
+                    <div key={opt.label} className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleSelectMcq(opt.label)}
+                        className={`flex flex-1 items-center gap-3.5 rounded-xl border px-4 py-3 text-left text-sm transition-colors ${btnClass}`}
+                      >
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-current/25 font-mono text-xs font-semibold">
+                          {opt.label}
+                        </span>
+                        <span className="flex-1">
+                          <ChemText text={opt.text} />
+                        </span>
+                        {isRevealed && isCorrectOpt && (
+                          <span className="text-xs font-semibold text-emerald-300">正确</span>
+                        )}
+                        {isRevealed && isSelected && !isCorrectOpt && (
+                          <span className="text-xs font-semibold text-red-300">误选</span>
+                        )}
+                      </button>
+                      {!isRevealed && (
+                        <button
+                          type="button"
+                          onClick={() => toggleEliminateOption(currentQ.id, opt.label)}
+                          title={isEliminated ? '取消排除' : '划掉排除此项'}
+                          className={`rounded-lg border p-2.5 transition-colors ${
+                            isEliminated
+                              ? 'border-red-500/40 bg-red-500/15 text-red-300'
+                              : 'border-white/10 bg-[#141416] text-[#F8F7F4]/35 hover:text-[#F8F7F4]/80'
+                          }`}
+                        >
+                          <Ban className="h-3.5 w-3.5" />
+                        </button>
                       )}
-                      {isRevealed && isSelected && !isCorrectOpt && (
-                        <span className="text-xs font-semibold text-red-300">误选</span>
-                      )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -978,18 +1444,72 @@ export function QuizWorkspace({
           ) : (
             <div className="mt-6 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-[#F8F7F4]/70">
-                  作答区（支持输入反应方程式、计算过程与关键词）
-                </label>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="text-xs font-medium text-[#F8F7F4]/70">
+                    作答区（支持快捷化学符号、文字输入或拍照上传手写草稿）
+                  </label>
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-white/15 bg-[#141416] px-2.5 py-1 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458] hover:text-[#E0A458]">
+                    <Camera className="h-3.5 w-3.5 text-[#E0A458]" />
+                    {currentAns.photoDataUrl ? '更换手写照片' : '拍照 / 上传手写稿'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => handleUploadHandwrittenPhoto(currentQ.id, e)}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Chemistry Quick Symbol Bar */}
+                <div className="mt-2 flex flex-wrap items-center gap-1 rounded-t-xl border border-b-0 border-white/15 bg-[#141416] px-2 py-1.5">
+                  <span className="mr-1 font-mono text-[10px] text-[#F8F7F4]/40">符号:</span>
+                  {CHEM_QUICK_SYMBOLS.map((sym) => (
+                    <button
+                      key={sym.label}
+                      type="button"
+                      title={sym.title}
+                      onClick={() => insertSymbolIntoAnswer(sym.insert)}
+                      className="rounded border border-white/10 bg-[#18181A] px-2 py-0.5 font-mono text-xs text-[#F8F7F4]/85 hover:border-[#E0A458] hover:text-[#E0A458]"
+                    >
+                      {sym.label}
+                    </button>
+                  ))}
+                </div>
+
                 <textarea
+                  ref={textareaRef}
                   rows={4}
                   value={currentAns.writtenText ?? ''}
                   onChange={(e) =>
                     updateAnswer(currentQ.id, { writtenText: e.target.value })
                   }
-                  placeholder="在此输入你的解题步骤与结论..."
-                  className="mt-1.5 w-full rounded-xl border border-white/15 bg-[#111113] px-3.5 py-2.5 text-sm text-[#F8F7F4] placeholder:text-[#F8F7F4]/35 focus:border-[#E0A458] focus:outline-none"
+                  placeholder="在此输入解题步骤、方程式与结论，或直接点击右上角拍照上传手写结构式/机理箭头..."
+                  className="w-full rounded-b-xl border border-white/15 bg-[#111113] px-3.5 py-2.5 text-sm text-[#F8F7F4] placeholder:text-[#F8F7F4]/35 focus:border-[#E0A458] focus:outline-none"
                 />
+
+                {currentAns.photoDataUrl && (
+                  <div className="mt-2.5 rounded-xl border border-[#E0A458]/30 bg-[#141416] p-3">
+                    <div className="mb-2 flex items-center justify-between text-xs">
+                      <span className="font-mono text-[#E0A458]">
+                        已附手写答卷照片（支持对照 MS 自评或 AI 识图批改）
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => updateAnswer(currentQ.id, { photoDataUrl: undefined })}
+                        className="inline-flex items-center gap-1 text-red-300 hover:underline"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        移除照片
+                      </button>
+                    </div>
+                    <img
+                      src={currentAns.photoDataUrl}
+                      alt="学生手写草稿预览"
+                      className="max-h-64 rounded-lg border border-white/10 bg-white object-contain"
+                    />
+                  </div>
+                )}
               </div>
 
               {session.mode === 'practice' && (
@@ -1003,7 +1523,7 @@ export function QuizWorkspace({
                     >
                       {gradingProviders.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.label} ({p.model})
+                          {p.label} ({p.model}){p.supportsVision ? ' · 支持识图' : ''}
                         </option>
                       ))}
                     </select>
@@ -1011,7 +1531,9 @@ export function QuizWorkspace({
 
                   <button
                     onClick={handleAiGradeStructured}
-                    disabled={!currentAns.writtenText?.trim() || gradingAi}
+                    disabled={
+                      (!currentAns.writtenText?.trim() && !currentAns.photoDataUrl) || gradingAi
+                    }
                     className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#141416] px-3.5 py-2 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458] hover:text-[#E0A458] disabled:opacity-35 whitespace-nowrap shrink-0"
                   >
                     {gradingAi ? (
@@ -1019,9 +1541,11 @@ export function QuizWorkspace({
                     ) : (
                       <Sparkles className="h-3.5 w-3.5 text-[#E0A458]" />
                     )}
-                    {gradingProviders.length === 1
-                      ? `AI 按评分标准批改 (${gradingProviders[0].label})`
-                      : 'AI 按评分标准批改'}
+                    {currentAns.photoDataUrl
+                      ? 'AI 识图按评分标准批改'
+                      : gradingProviders.length === 1
+                        ? `AI 按评分标准批改 (${gradingProviders[0].label})`
+                        : 'AI 按评分标准批改'}
                   </button>
 
                   {!currentAns.msRevealed && !currentAns.submittedInPractice && (
@@ -1582,6 +2106,7 @@ export function QuizWorkspace({
           </div>
         </div>
       )}
+      <DataBookletDrawer isOpen={bookletOpen} onClose={() => setBookletOpen(false)} />
     </div>
   );
 }

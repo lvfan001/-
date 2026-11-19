@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Calendar,
+  CheckCircle2,
   CheckSquare,
+  Clock,
   Flame,
   Loader2,
   Play,
+  Printer,
+  Share2,
   Sparkles,
   Square,
 } from 'lucide-react';
@@ -19,7 +23,9 @@ import type {
 } from '../types/chemistry.ts';
 import { getChapterById, getModuleById } from '../data/syllabus.ts';
 import { getHighFrequencyMistakeQuestions } from '../utils/analytics.ts';
+import { getSpacedReviewSchedule } from '../utils/studyTools.ts';
 import { ChemText } from './ChemVisuals.tsx';
+import { PrintableWorksheetModal } from './PrintableWorksheetModal.tsx';
 
 interface AnalyticsAndPlanViewProps {
   questions: Question[];
@@ -32,6 +38,8 @@ interface AnalyticsAndPlanViewProps {
   onPlanGenerated: (plan: RevisionPlan) => void;
   onToggleTask: (taskId: string) => void;
   onStartMistakesQuiz: () => void;
+  onStartDueMistakesQuiz: (questionIds: string[]) => void;
+  onOpenAssignmentModal: () => void;
   onStartTaskQuiz: (task: RevisionTask) => void;
 }
 
@@ -46,14 +54,21 @@ export function AnalyticsAndPlanView({
   onPlanGenerated,
   onToggleTask,
   onStartMistakesQuiz,
+  onStartDueMistakesQuiz,
+  onOpenAssignmentModal,
   onStartTaskQuiz,
 }: AnalyticsAndPlanViewProps) {
   const [dailyMinutes, setDailyMinutes] = useState(45);
   const [planDays, setPlanDays] = useState(7);
   const [generating, setGenerating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [printMistakesOpen, setPrintMistakesOpen] = useState(false);
 
   const mistakes = getHighFrequencyMistakeQuestions(questions, statsMap);
+  const spacedSchedule = useMemo(
+    () => getSpacedReviewSchedule(questions, statsMap),
+    [questions, statsMap]
+  );
   const attemptedChapters = chapterSummaries
     .filter((c) => c.attempts > 0)
     .sort((a, b) => b.errorRate - a.errorRate || b.wrongCount - a.wrongCount);
@@ -102,16 +117,72 @@ export function AnalyticsAndPlanView({
           </p>
         </div>
 
-        {mistakes.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
-            onClick={onStartMistakesQuiz}
-            className="inline-flex items-center gap-2 rounded-lg bg-red-600/90 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-600 whitespace-nowrap shrink-0"
+            type="button"
+            onClick={onOpenAssignmentModal}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#18181A] px-3.5 py-2 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458] hover:text-[#E0A458] whitespace-nowrap"
           >
-            <Flame className="h-4 w-4" />
-            重做全部高频错题 ({mistakes.length} 题)
+            <Share2 className="h-3.5 w-3.5 text-[#E0A458]" />
+            布置 / 输入作业码
           </button>
-        )}
+          {mistakes.length > 0 && (
+            <>
+              <button
+                type="button"
+                onClick={() => setPrintMistakesOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#18181A] px-3.5 py-2 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458] hover:text-[#E0A458] whitespace-nowrap"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                导出错题 PDF 卷
+              </button>
+              <button
+                onClick={onStartMistakesQuiz}
+                className="inline-flex items-center gap-2 rounded-lg bg-red-600/90 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-red-600 whitespace-nowrap"
+              >
+                <Flame className="h-3.5 w-3.5" />
+                重做全部待清零错题 ({mistakes.length} 题)
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Ebbinghaus Spaced Repetition Card */}
+      <section className="rounded-xl border border-[#E0A458]/30 bg-[#18181A] p-5">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-[#E0A458]">
+              <Clock className="h-3.5 w-3.5" />
+              EBBINGHAUS SPACED REVIEW · 1 / 3 / 7 天遗忘回炉
+            </div>
+            <h2 className="mt-1 text-base font-semibold text-[#F8F7F4]">
+              今日待回炉错题：{spacedSchedule.dueToday.length} 题
+              {spacedSchedule.clearedCount > 0 && (
+                <span className="ml-2 inline-flex items-center gap-1 font-mono text-xs font-normal text-emerald-300">
+                  <CheckCircle2 className="h-3.5 w-3.5" />已连对 2 次清零 {spacedSchedule.clearedCount} 题
+                </span>
+              )}
+            </h2>
+            <p className="mt-1 text-xs text-[#F8F7F4]/60">
+              错题将按遗忘曲线自动排期回炉，同一道错题连续答对 2 次后自动从高频错题清零。
+              {spacedSchedule.upcoming.length > 0 &&
+                ` 另有 ${spacedSchedule.upcoming.length} 题将在 ${spacedSchedule.upcoming[0].nextDueInDays} 天后到期巩固。`}
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={spacedSchedule.dueToday.length === 0}
+            onClick={() =>
+              onStartDueMistakesQuiz(spacedSchedule.dueToday.map((i) => i.question.id))
+            }
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#E0A458] px-4 py-2 text-xs font-semibold text-[#111113] hover:bg-[#EBB66E] disabled:opacity-35 whitespace-nowrap shrink-0"
+          >
+            <Play className="h-3.5 w-3.5" />
+            开始今日回炉 ({spacedSchedule.dueToday.length} 题)
+          </button>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="rounded-xl border border-white/10 bg-[#18181A] p-6">
@@ -423,6 +494,13 @@ export function AnalyticsAndPlanView({
           </div>
         )}
       </section>
+      <PrintableWorksheetModal
+        isOpen={printMistakesOpen}
+        onClose={() => setPrintMistakesOpen(false)}
+        title={`Chem9701 高频错题专练卷 (${mistakes.length} 题)`}
+        subtitle="按错题次数降序排版 · 适合考前纸质打印刷题"
+        questions={mistakes.map((m) => m.question)}
+      />
     </div>
   );
 }

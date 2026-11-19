@@ -81,7 +81,11 @@ export function getHighFrequencyMistakeQuestions(
   return questions
     .map((q) => ({ question: q, stat: statsMap[q.id] }))
     .filter((entry): entry is { question: Question; stat: QuestionStat } =>
-      Boolean(entry.stat && entry.stat.wrongCount > 0)
+      Boolean(
+        entry.stat &&
+          entry.stat.wrongCount > 0 &&
+          (entry.stat.consecutiveCorrect ?? 0) < 2
+      )
     )
     .sort((a, b) => {
       if (b.stat.wrongCount !== a.stat.wrongCount) {
@@ -107,6 +111,8 @@ export function recordQuestionAttempt(
     nextHistory.unshift({ at: now, userAnswer });
   }
 
+  const nextConsecutiveCorrect = isCorrect ? (existing?.consecutiveCorrect ?? 0) + 1 : 0;
+
   return {
     ...prev,
     [questionId]: {
@@ -116,6 +122,7 @@ export function recordQuestionAttempt(
       lastAttemptAt: now,
       lastWrongAt: isCorrect ? existing?.lastWrongAt : now,
       lastCorrect: isCorrect,
+      consecutiveCorrect: nextConsecutiveCorrect,
       wrongHistory: nextHistory.slice(0, 10),
     },
   };
