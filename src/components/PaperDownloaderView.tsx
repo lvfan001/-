@@ -125,7 +125,7 @@ export function PaperDownloaderView() {
 
   const visibleYearGroups = useMemo(() => {
     if (showAllYears) return yearGroups;
-    const recent = yearGroups.filter((g) => g.year >= 2021);
+    const recent = yearGroups.filter((g) => g.year >= 2018);
     return recent.length > 0 ? recent : yearGroups;
   }, [yearGroups, showAllYears]);
 
@@ -376,13 +376,13 @@ export function PaperDownloaderView() {
                 <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-[#F8F7F4]/50">
                   1 · 选择年份 (Year)
                 </span>
-                {yearGroups.some((g) => g.year < 2021) && (
+                {yearGroups.some((g) => g.year < 2018) && (
                   <button
                     type="button"
                     onClick={() => setShowAllYears((v) => !v)}
                     className="font-mono text-[11px] text-[#E0A458] hover:underline"
                   >
-                    {showAllYears ? '仅显示 2021–2026' : '展开更早年份 (2016–2020)'}
+                    {showAllYears ? '仅显示 2018–2026' : '展开更早年份 (2016–2017)'}
                   </button>
                 )}
               </div>

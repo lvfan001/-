@@ -69,13 +69,13 @@ export function OverviewView({
       <div className="flex flex-col justify-between gap-4 border-b border-white/10 pb-6 lg:flex-row lg:items-end">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-[#F8F7F4]/50">
-            CAIE 9701 SYLLABUS · 2021–2026 PAST PAPER WORKBENCH
+            CAIE 9701 SYLLABUS · 2018–2026 PAST PAPER WORKBENCH
           </p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight text-[#F8F7F4] sm:text-3xl">
             A-Level 化学真题精练与错题诊断中心
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-[#F8F7F4]/65">
-            已内置来自 PapaCambridge 的 2021–2026 原卷与官方 Mark Scheme 截图题库，按 30 个考纲章节精准归类，涉及 2 个以上章节的综合真题自动路由至模块练习。
+            已内置来自 PapaCambridge 的 2018–2026 原卷与官方 Mark Scheme 截图题库。30 章节基础练习严格单章隔离并按「基础前置 → 拔高后置」排题，跨章综合与小模考 / 大模考 / 实测套卷统一归入「模拟考与跨章练习」。
           </p>
         </div>
 
@@ -85,14 +85,14 @@ export function OverviewView({
             className="inline-flex items-center gap-2 rounded-lg border border-white/15 bg-[#18181A] px-4 py-2.5 text-sm font-medium text-[#F8F7F4]/85 transition-colors hover:border-[#E0A458]/50 hover:text-[#E0A458] whitespace-nowrap shrink-0"
           >
             <DownloadCloud className="h-4 w-4 text-[#F8F7F4]/60" />
-            下载 2021–2026 真题
+            下载 2018–2026 真题
           </button>
           <button
             onClick={onStartQuickMock}
             className="inline-flex items-center gap-2 rounded-lg bg-[#E0A458] px-4 py-2.5 text-sm font-semibold text-[#111113] transition-colors hover:bg-[#EBB66E] whitespace-nowrap shrink-0"
           >
             <Play className="h-4 w-4" />
-            开始诊断模拟考
+            开始 AS 小模考
           </button>
         </div>
       </div>
@@ -180,7 +180,7 @@ export function OverviewView({
               onClick={onOpenModulesPage}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-[#E0A458] transition-colors hover:text-[#EBB66E] whitespace-nowrap shrink-0"
             >
-              进入模块练习
+              前往模考跨章模块
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>
@@ -232,10 +232,10 @@ export function OverviewView({
               模拟考评估 · CAIE 等级预测
             </div>
             <h2 className="mt-1.5 text-lg font-semibold text-[#F8F7F4]">
-              限时模考与分数线评估
+              小模考 / 大模考 / 实测随机发卷
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-[#F8F7F4]/65">
-              支持 Paper 1 选择题限时考、Paper 2/4 简答对照官方 MS 批改与全纲诊断测试，交卷后自动生成 A*–U 等级评定与章节失分分布。
+              支持 AS 小模考 (10选+15分简答)、AS 大模考 (20选+30分简答)、A2 小/大模考 (25/50分简答小问) 与实测随机真题套卷，交卷自动评定 CAIE A*–U 等级。
             </p>
           </div>
           <div className="mt-5 flex items-center justify-between border-t border-white/[0.06] pt-4">

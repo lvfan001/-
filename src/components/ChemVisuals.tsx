@@ -84,7 +84,7 @@ export function ClippedQuestionImage({
   imageUrl,
   alt = 'CAIE 9701 Past Paper Diagram',
   caption,
-  maxWidthClass = 'max-w-[820px]',
+  maxWidthClass = 'max-w-[920px]',
 }: {
   imageId?: string;
   imageUrl?: string;
@@ -96,10 +96,12 @@ export function ClippedQuestionImage({
   const [imgError, setImgError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [zoomed, setZoomed] = useState(false);
+  const [scaleMode, setScaleMode] = useState<'fit' | 'large'>('fit');
 
   useEffect(() => {
     setImgError(false);
     setRetryCount(0);
+    setScaleMode('fit');
     if (imageUrl) {
       setSrc(imageUrl);
       return;
@@ -158,45 +160,60 @@ export function ClippedQuestionImage({
 
   return (
     <>
-      <figure className="my-4 rounded-xl border border-white/12 bg-[#141416] p-3 sm:p-4">
-        <div className="relative overflow-hidden rounded-lg bg-white p-2 sm:p-3">
+      <figure className="my-4 rounded-xl border border-white/15 bg-[#141416] p-3 sm:p-4">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+          <span className="font-mono text-[#F8F7F4]/60">
+            {caption ?? alt}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setScaleMode((m) => (m === 'fit' ? 'large' : 'fit'))}
+              className={`rounded-md border px-2 py-0.5 font-mono text-[11px] transition-colors ${
+                scaleMode === 'large'
+                  ? 'border-[#E0A458] bg-[#E0A458]/15 text-[#E0A458]'
+                  : 'border-white/12 bg-[#18181A] text-[#F8F7F4]/70 hover:border-white/30 hover:text-[#F8F7F4]'
+              }`}
+            >
+              {scaleMode === 'large' ? '恢复适宽' : '125% 放大'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoomed(true)}
+              className="inline-flex items-center gap-1 rounded-md border border-white/12 bg-[#18181A] px-2 py-0.5 text-[11px] font-medium text-[#F8F7F4]/80 hover:border-[#E0A458] hover:text-[#E0A458]"
+            >
+              <Maximize2 className="h-3 w-3" />
+              全屏审图
+            </button>
+          </div>
+        </div>
+        <div className="overflow-x-auto rounded-lg bg-white p-3 sm:p-4 shadow-inner">
           <img
             src={src}
             alt={alt}
             referrerPolicy="no-referrer"
             onError={handleImageError}
             onClick={() => setZoomed(true)}
-            className={`mx-auto block h-auto w-full ${maxWidthClass} cursor-zoom-in`}
+            className={`mx-auto block h-auto cursor-zoom-in ${
+              scaleMode === 'large' ? 'w-[125%] max-w-none min-w-[760px]' : `w-full ${maxWidthClass}`
+            }`}
           />
-          <button
-            type="button"
-            onClick={() => setZoomed(true)}
-            className="absolute right-2.5 top-2.5 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white/95 px-2.5 py-1 text-xs font-medium text-slate-800 shadow-xs hover:border-[#E0A458] hover:text-slate-950"
-          >
-            <Maximize2 className="h-3 w-3" />
-            放大审图
-          </button>
         </div>
-        {caption && (
-          <figcaption className="mt-2.5 text-center font-mono text-[11px] text-[#F8F7F4]/55">
-            {caption}
-          </figcaption>
-        )}
       </figure>
 
       {zoomed && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/88 p-4"
           onClick={() => setZoomed(false)}
         >
           <div
-            className="relative max-h-[92vh] max-w-5xl overflow-auto rounded-xl border border-white/15 bg-white p-4"
+            className="relative max-h-[94vh] max-w-6xl overflow-auto rounded-xl border border-white/15 bg-white p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               onClick={() => setZoomed(false)}
-              className="sticky float-right right-1 top-1 rounded-lg border border-slate-200 bg-white p-1.5 text-slate-800 hover:bg-slate-100"
+              className="sticky float-right right-1 top-1 rounded-lg border border-slate-200 bg-white p-1.5 text-slate-800 shadow-xs hover:bg-slate-100"
               aria-label="关闭放大视图"
             >
               <X className="h-4 w-4" />
@@ -205,7 +222,7 @@ export function ClippedQuestionImage({
               src={src}
               alt={alt}
               referrerPolicy="no-referrer"
-              className="max-h-[84vh] w-auto object-contain"
+              className="w-full max-w-5xl object-contain"
             />
           </div>
         </div>

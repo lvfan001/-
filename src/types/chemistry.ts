@@ -156,10 +156,22 @@ export interface ModuleErrorSummary {
   questionCount: number;
 }
 
+export type MockPaperMode =
+  | 'AS Mini Mock'
+  | 'AS Full Mock'
+  | 'A2 Mini Mock'
+  | 'A2 Full Mock'
+  | 'AS Real Paper Mock'
+  | 'A2 Real Paper Mock'
+  | 'Cross-Chapter Synthesis'
+  | 'Paper 1 (MCQ)'
+  | 'Paper 2/4 (Structured)'
+  | 'Full Diagnostic Mock';
+
 export interface MockExamResult {
   id: string;
   title: string;
-  paperMode: 'Paper 1 (MCQ)' | 'Paper 2/4 (Structured)' | 'Full Diagnostic Mock';
+  paperMode: MockPaperMode;
   completedAt: string;
   durationSeconds: number;
   totalMarks: number;
@@ -204,12 +216,19 @@ export type AppView =
   | 'mock'
   | 'analytics';
 
+export interface RealPaperFileRef {
+  paperCode: string;
+  qpFileName: string;
+  msFileName: string;
+}
+
 export interface ActiveQuizSession {
   id: string;
   title: string;
   subtitle: string;
   mode: 'practice' | 'mock';
-  paperModeLabel?: 'Paper 1 (MCQ)' | 'Paper 2/4 (Structured)' | 'Full Diagnostic Mock';
+  paperModeLabel?: MockPaperMode;
   questions: Question[];
   durationSeconds?: number; // for mock mode
+  realPaperFiles?: RealPaperFileRef[];
 }

@@ -33,6 +33,11 @@ import {
   getHighFrequencyMistakeQuestions,
   recordQuestionAttempt,
 } from './utils/analytics.ts';
+import {
+  MOCK_PRESETS,
+  buildPresetMockPaper,
+  sortChapterQuestionsByDifficulty,
+} from './utils/mockPaperBuilder.ts';
 import { OverviewView } from './components/OverviewView.tsx';
 import { PaperDownloaderView } from './components/PaperDownloaderView.tsx';
 import { ChapterModuleView } from './components/ChapterModuleView.tsx';
@@ -67,7 +72,7 @@ function deepClone<T>(val: T): T {
 
 export default function App() {
   const [activeView, setActiveView] = useState<AppView>('overview');
-  const [practiceTab, setPracticeTab] = useState<'chapters' | 'modules'>('chapters');
+  const [focusMockModules, setFocusMockModules] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const [customQuestions, setCustomQuestions] = useState<Question[]>(() =>
@@ -238,29 +243,54 @@ export default function App() {
 
   function handleStartChapterQuiz(chapterId: number) {
     const ch = getChapterById(chapterId);
-    // Strict textbook single-chapter isolation: ONLY questions solvable solely by this chapter
-    const single = allQuestions.filter(
-      (q) => q.chapters.length === 1 && q.chapters[0] === chapterId
+    // Strict textbook single-chapter isolation, sorted Core (front-loaded) -> Standard -> Challenging (back-loaded)
+    const single = sortChapterQuestionsByDifficulty(
+      allQuestions.filter((q) => q.chapters.length === 1 && q.chapters[0] === chapterId)
     );
 
     startQuizSession({
       id: `quiz-ch-${chapterId}-${Date.now()}`,
       title: `${ch?.code ?? `Ch ${chapterId}`} · ${ch?.titleEn ?? ''}`,
-      subtitle: `单章可解专项真题（严格按教材章节隔离）`,
+      subtitle: `单章阶梯练习（基础前置 → 标准真题 → 拔高后置 · 严格无超前考点）`,
       mode: 'practice',
       questions: single,
     });
   }
 
-  function handleStartModuleQuiz(moduleId: string) {
+  function handleStartModuleQuiz(moduleId: string, timedMock = false) {
     const mod = getModuleById(moduleId);
     const list = allQuestions.filter(
       (q) => q.chapters.length >= 2 && q.moduleId === moduleId
     );
+    if (list.length === 0) return;
+
+    if (timedMock) {
+      const pool = [...list];
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      const chosen = pool.slice(0, Math.min(12, pool.length));
+      const durationSeconds = Math.max(
+        600,
+        chosen.reduce((acc, q) => acc + (q.type === 'mcq' ? 110 : q.marks * 95), 0)
+      );
+      startQuizSession({
+        id: `mock-mod-${moduleId}-${Date.now()}`,
+        title: `${mod?.code ?? ''} · ${mod?.titleZh ?? ''}`,
+        subtitle: `${mod?.titleEn ?? ''} · 跨章模块限时模考 (随机抽 ${chosen.length} 题)`,
+        mode: 'mock',
+        paperModeLabel: 'Cross-Chapter Synthesis',
+        questions: chosen,
+        durationSeconds,
+      });
+      return;
+    }
+
     startQuizSession({
       id: `quiz-mod-${moduleId}-${Date.now()}`,
       title: `${mod?.code ?? ''} · ${mod?.titleZh ?? ''}`,
-      subtitle: `${mod?.titleEn ?? ''} · 跨章模块练习 (≥2 章节)`,
+      subtitle: `${mod?.titleEn ?? ''} · 跨章综合专项练习 (≥2 章节)`,
       mode: 'practice',
       questions: list,
     });
@@ -279,24 +309,18 @@ export default function App() {
   }
 
   function handleStartQuickMock() {
-    const pool = [...allQuestions];
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [pool[i], pool[j]] = [pool[j], pool[i]];
-    }
-    const chosen = pool.slice(0, Math.min(10, pool.length));
-    const durationSeconds = chosen.reduce(
-      (acc, q) => acc + (q.type === 'mcq' ? 110 : q.marks * 95),
-      0
-    );
+    const preset = MOCK_PRESETS[0]; // AS 小模考 (10 选择 + ~15 分简答小问)
+    const built = buildPresetMockPaper(preset, allQuestions, {
+      yearRange: 'all',
+    });
     startQuizSession({
       id: `mock-quick-${Date.now()}`,
-      title: '全纲诊断模拟考 (2021–2026)',
-      subtitle: '限时模拟测评 · 交卷自动生成 CAIE 等级与错题分析',
+      title: `${preset.titleZh} · 快速诊断`,
+      subtitle: `${built.mcqCount} 道选择 + ${built.structuredCount} 道简答小问 (${built.structuredMarks} 分) · 总计 ${built.totalMarks} 分`,
       mode: 'mock',
-      paperModeLabel: 'Full Diagnostic Mock',
-      questions: chosen,
-      durationSeconds,
+      paperModeLabel: preset.paperMode,
+      questions: built.questions,
+      durationSeconds: preset.durationMinutes * 60,
     });
   }
 
@@ -317,14 +341,16 @@ export default function App() {
       return;
     }
     if (task.targetChapterIds.length === 1) {
-      const single = allQuestions.filter(
-        (q) => q.chapters.length === 1 && q.chapters[0] === task.targetChapterIds[0]
+      const single = sortChapterQuestionsByDifficulty(
+        allQuestions.filter(
+          (q) => q.chapters.length === 1 && q.chapters[0] === task.targetChapterIds[0]
+        )
       );
       if (single.length > 0) {
         startQuizSession({
           id: `quiz-task-${task.id}-${Date.now()}`,
           title: task.titleZh,
-          subtitle: `Day ${task.dayIndex} 复习任务 · ${task.estimatedMinutes} 分钟`,
+          subtitle: `Day ${task.dayIndex} 复习任务 · ${task.estimatedMinutes} 分钟 · 基础前置 → 拔高后置`,
           mode: 'practice',
           questions: single,
         });
@@ -366,8 +392,8 @@ export default function App() {
 
   const navItems: Array<{ id: AppView; label: string; icon: React.ReactNode }> = [
     { id: 'overview', label: '总览工作台', icon: <LayoutDashboard className="h-4 w-4" /> },
-    { id: 'practice', label: '30 章节与模块练习', icon: <BookOpen className="h-4 w-4" /> },
-    { id: 'mock', label: '模拟考测评', icon: <Award className="h-4 w-4" /> },
+    { id: 'practice', label: '30 章节基础练习', icon: <BookOpen className="h-4 w-4" /> },
+    { id: 'mock', label: '模拟考与跨章练习', icon: <Award className="h-4 w-4" /> },
     { id: 'analytics', label: '错题频率与复习计划', icon: <BarChart3 className="h-4 w-4" /> },
     { id: 'papers', label: '历年真题下载', icon: <DownloadCloud className="h-4 w-4" /> },
   ];
@@ -394,9 +420,7 @@ export default function App() {
                   key={item.id}
                   onClick={() => {
                     setActiveQuiz(null);
-                    if (item.id === 'practice') {
-                      setPracticeTab('chapters');
-                    }
+                    setFocusMockModules(false);
                     setActiveView(item.id);
                   }}
                   className={`flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-left text-sm font-medium transition-colors whitespace-nowrap ${
@@ -456,7 +480,7 @@ export default function App() {
               30 Chapters · 6 Modules
             </div>
             <div className="mt-0.5 font-mono text-[11px] text-[#F8F7F4]/50 tabular-nums">
-              2021–2026 Past Papers
+              2018–2026 Past Papers
             </div>
           </div>
         </div>
@@ -533,9 +557,7 @@ export default function App() {
                     key={item.id}
                     onClick={() => {
                       setActiveQuiz(null);
-                      if (item.id === 'practice') {
-                        setPracticeTab('chapters');
-                      }
+                      setFocusMockModules(false);
                       setActiveView(item.id);
                       setMobileMenuOpen(false);
                     }}
@@ -578,8 +600,8 @@ export default function App() {
               onNavigate={setActiveView}
               onStartChapterQuiz={handleStartChapterQuiz}
               onOpenModulesPage={() => {
-                setPracticeTab('modules');
-                setActiveView('practice');
+                setFocusMockModules(true);
+                setActiveView('mock');
               }}
               onStartMistakesQuiz={handleStartMistakesQuiz}
               onStartQuickMock={handleStartQuickMock}
@@ -590,27 +612,31 @@ export default function App() {
             <ChapterModuleView
               questions={allQuestions}
               chapterSummaries={chapterSummaries}
-              moduleSummaries={moduleSummaries}
-              activeTab={practiceTab}
-              onTabChange={setPracticeTab}
               onStartChapterQuiz={handleStartChapterQuiz}
-              onStartModuleQuiz={handleStartModuleQuiz}
+              onGoToMockExam={() => {
+                setFocusMockModules(true);
+                setActiveView('mock');
+              }}
             />
           ) : activeView === 'mock' ? (
             <MockExamSetupView
               questions={allQuestions}
+              moduleSummaries={moduleSummaries}
               mockHistory={mockHistory}
+              focusCrossChapter={focusMockModules}
               onStartMock={(config) =>
                 startQuizSession({
                   id: `mock-${Date.now()}`,
                   title: config.title,
-                  subtitle: 'CAIE 9701 限时模拟测评',
+                  subtitle: config.subtitle ?? 'CAIE 9701 限时模拟测评',
                   mode: 'mock',
                   paperModeLabel: config.paperModeLabel,
                   questions: config.questions,
                   durationSeconds: config.durationSeconds,
+                  realPaperFiles: config.realPaperFiles,
                 })
               }
+              onStartModuleQuiz={handleStartModuleQuiz}
             />
           ) : (
             <AnalyticsAndPlanView

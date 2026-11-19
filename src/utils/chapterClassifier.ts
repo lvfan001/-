@@ -6,6 +6,186 @@ export interface ClassifyOptions {
   partOnlyText?: string;
 }
 
+/**
+ * Syllabus-audited chapter assignments for CAIE 9701 (Coursebook 3rd Ed., Ch 01–30).
+ * Enforces two strict invariants for single-chapter Basic Practice:
+ * 1. On-topic: the question genuinely assesses a syllabus objective of Ch N.
+ * 2. Zero forward-dependency: solving Ch N requires ONLY Ch 1..N (AS 1–18 for P1/P2;
+ *    A2 19–30 + AS prerequisites for P4/P5). Any question integrating >=2 chapters or
+ *    requiring a later chapter is moved to the target chapter or routed to cross-chapter
+ *    Mock Exam synthesis (chapters.length >= 2).
+ */
+export const CURATED_CHAPTER_OVERRIDES: Record<string, number[]> = {
+  // --- Rescued clean single-chapter questions (previously over-tagged as multi-chapter) ---
+  'pc-s21_13-q3': [1], // Electron count of NH4+ (Ch 1 Atomic Structure)
+  'pc-s25_11-q14': [2], // 3p orbital properties (Ch 2 Electrons in Atoms)
+  'pc-w23_12-q2': [2], // 2nd IE of oxygen vs fluorine (Ch 2)
+  'pc-m23_22-q1a': [4], // Define electronegativity (Ch 4)
+  'pc-s25_12-q17': [12], // Volatility trend down Group 17 (uses earlier Ch 4 IMF)
+  'pc-m25_12-q39': [14], // sp3 hybridised orbitals in but-2-ene (Ch 14)
+  'pc-s25_12-q33': [16], // Hydrolysis rates of 1-halo-butanes with AgNO3(aq) (Ch 16)
+  'pc-s24_12-q28': [16], // SN2 first step of 1-bromopropane + NaOH(aq) (Ch 16)
+  'pc-m25_12-q27': [18], // Nucleophilic addition of HCN to propanone (Ch 18)
+
+  // --- Ch 02 fixes (removed Period 3 & Hess cycle forward leaks) ---
+  'pc-s23_11-q19': [10], // Period 3 oxide shaken with water -> pH (Ch 10 Periodicity)
+  'pc-m21_12-q13': [2, 10], // Compares IE, melting point, radius of P vs Mg
+  'pc-s22_12-q1': [2, 6], // Enthalpy cycle ΔH = W, X, Y, Z to find 2nd IE (needs Ch 6)
+
+  // --- Ch 03 fixes (removed Ch 5/8/11/13/14/15/17/18 forward leaks) ---
+  'pc-s25_11-q6': [3, 17], // Empirical formula + Na2CO3 effervescence (Ch 17 acid)
+  'pc-s25_11-q12': [3, 11], // Barium dithionate decomposition -> BaSO4 ppt (Ch 11)
+  'pc-s25_12-q15': [3, 14], // Skeletal formulae of arginine & lysine -> empirical formula
+  'pc-m25_12-q25': [3, 13], // Nitrate decomposition + NO2 absorption in NaOH(aq) (Ch 13)
+  'pc-m25_12-q40': [18], // M+1 peak carbon count (Ch 18.7 AS Organic MS)
+  'pc-w23_12-q9': [5], // Sulfur vapour ideal gas pV = nRT (Ch 5)
+  'pc-s23_12-q25': [14], // Molecular formula C6H10O from skeletal structures (Ch 14)
+  'pc-s21_12-q32': [3, 15], // Straight-chain hydrocarbon Mr=84 -> C=C check (Ch 15)
+  'pc-m26_22-q4a': [8], // Define weak acid + weak acid titration curve (Ch 8)
+  'pc-m25_22-q1d': [18], // M / M+2 3:1 Cl isotope mass spectrum of organic D (Ch 18)
+
+  // --- Ch 04 fixes (removed Ch 5/10/12/13/14 forward leaks) ---
+  'pc-s26_12-q24': [4, 13], // NH4Cl + KOH(aq) -> NH3 & bond angle change (Ch 13)
+  'pc-s25_11-q18': [12], // Group 17 halogens & H-X bond strength/stability (Ch 12)
+  'pc-s21_12-q3': [4, 14], // Boiling points from skeletal formulae of organic salts/esters
+  'pc-m23_22-q1e': [4, 5], // Dipole moments (Ch 4) + pV = nRT in part (e)(ii) (Ch 5)
+  'pc-w21_22-q2c': [10], // Mendeleev Group 13 periodicity table trends (Ch 10)
+
+  // --- Ch 05 fixes (removed Ch 10 Periodicity leaks) ---
+  'pc-m25_12-q7': [10], // Conductivity + vigorous reaction with water -> pH (Ch 10)
+  'pc-w23_22-q1a': [10], // Si->S atomic radius + melting point trend (Ch 10)
+
+  // --- Ch 06 fixes (removed Ch 9/15/16 forward leaks) ---
+  'pc-w25_12-q15': [6, 9], // Two-step reaction pathway + faster second step (Ch 9 Ea)
+  'pc-s25_22-q3c': [6, 15], // Alkene diene hydrogenation + bond energy ΔH (Ch 15)
+  'pc-w25_22-q3e': [6, 15], // Hexane cracking scheme + Hess cycle (Ch 15)
+  'pc-w24_22-q4b': [6, 16], // 1,2-dibromoethane reaction scheme ΔH (Ch 16)
+  'pc-s23_22-q4a': [6, 15], // Ethene + steam -> ethanol bond energy calculation
+
+  // --- Ch 07 fixes (removed Ch 12 Group 17 & Ch 2/4 leaks) ---
+  'pc-s26_12-q23': [12], // Strongest oxidising agent Cl2/Cl-/I2/I- (Ch 12)
+  'pc-m26_12-q22': [12], // Halogen displacement 2NaX + Y2 -> 2NaY + X2 (Ch 12)
+  'pc-s24_12-q19': [12], // Cl2 + cold NaOH(aq) (Ch 12)
+  'pc-w23_12-q12': [12], // Cl2 + NaBr displacement & redox (Ch 12)
+  'pc-m21_22-q2d': [12], // Cl2 + NaOH disproportionation equation (Ch 12)
+  'pc-s22_12-q6': [2, 4], // Group 15 hydrides, H-bonding & outer electron config
+
+  // --- Ch 08 fixes (removed Ch 17 esterification forward leak) ---
+  'pc-m25_12-q6': [8, 17], // Organic acid + alcohol ⇌ ester + water Kc (Ch 17)
+
+  // --- Ch 09 fixes (removed Ch 8 equilibrium rate graph) ---
+  'pc-w23_22-q2a': [8], // Reverse reaction rate reaching dynamic equilibrium (Ch 8)
+
+  // --- Ch 10 fixes (removed Ch 11 Group 2 leaks) ---
+  'pc-s22_12-q17': [10, 11], // NH3(aq) with NaCl, MgCl2, BaCl2, SiCl4 (Ch 10 + Ch 11)
+  'pc-s21_12-q35': [10, 11], // pH change of CaO (Group 2), Al2O3, SiO2 in water
+
+  // --- Ch 11 fixes (removed Ch 1/10/13 unrelated & forward leaks) ---
+  'pc-m25_12-q21': [11, 13], // River water NH4+/CO3^2- treated with Ca(OH)2
+  'pc-s22_12-q25': [10, 13], // Period 3 oxide + NH4NO3 heated -> alkaline gas
+  'pc-w23_12-q20': [10], // Period 3 oxides/chlorides mixtures in water -> highest pH
+  'pc-m25_22-q2c': [1], // Distribution of mass in 9_4 Be atom (Ch 1)
+  'pc-m23_22-q1d': [10], // SO2 + H2O & SO2 + NaOH (Ch 10 Periodicity)
+  'pc-m23_22-q2a': [10], // Metallic bonding + Mg vs Na electrical conductivity (Ch 10)
+
+  // --- Ch 12 fixes (removed Ch 13 ammonium forward leak) ---
+  'pc-s23_12-q22': [12, 13], // AgNO3 white ppt (Cl-) + KOH heat -> alkaline gas (NH4+)
+
+  // --- Ch 13 fixes (removed Ch 8 equilibrium leak) ---
+  'pc-w24_12-q13': [8, 13], // Ca5(PO4)3OH(s) equilibrium shift with NH3/NH4Cl/CH3CO2H
+
+  // --- Ch 14 fixes (removed Ch 15/16/17/18 forward leaks & inorganic bonding) ---
+  'pc-s24_12-q37': [14, 15, 17, 18], // Reactions forming chiral products across Ch 15/17/18
+  'pc-s23_12-q27': [14, 17], // Chiral centre + Na vs Na2CO3 functional group test
+  'pc-s24_12-q4': [2, 14], // Unpaired electrons / free radical species (Cl, O-, etc.)
+  'pc-s23_12-q2': [2, 14], // Free radical species among He, Be, O-, Zn
+  'pc-s23_12-q6': [4, 14], // Cl-N=O σ/π bonds, polarity & sp2 hybridisation
+  'pc-m24_22-q3d': [4, 14], // N2F2 dot-and-cross, sp2 & π orbital
+  'pc-s24_22-q4e': [14, 16], // Hybridisation of E, F, G from bromoalkane elimination
+
+  // --- Ch 15 fixes (removed Ch 16/17 forward leaks & Ch 4/14 π-bond) ---
+  'pc-m25_12-q16': [4, 14], // π bonds in propene, HCN and CO2
+  'pc-s23_12-q29': [15, 16], // Bromoethane + hot ethanolic NaOH -> gas decolourising Br2
+  'pc-s21_22-q4c': [17], // Dehydration of propan-1-ol with conc. H2SO4 (Ch 17)
+  'pc-m24_22-q2d': [15, 16], // Propene + Cl2 -> 1,2-dichloropropane + ethanolic NaOH (Ch 16)
+
+  // --- Ch 16 fixes (removed Ch 15 alkane/alkene & Ch 17 nitrile hydrolysis leaks) ---
+  'pc-m26_12-q28': [15], // Electrophilic addition of HCl/Br2 to propene (Ch 15)
+  'pc-s25_12-q35': [15], // CH3Cl + Cl2 UV free-radical termination (Ch 15)
+  'pc-m26_22-q3c': [15], // Butane + Cl2 free-radical substitution mechanism (Ch 15)
+  'pc-w24_12-q30': [16, 17], // 1-bromopropane -> butanenitrile -> butanoic acid (Ch 17)
+  'pc-m24_12-q37': [16, 17], // CH3CH2Br -> KCN/EtOH -> dilute HCl reflux -> propanoic acid
+  'pc-w24_12-q31': [15, 16, 17], // Routes to 2-chloro-2-methylpropane (Ch 15 + 16 + 17)
+  'pc-s25_22-q4b': [16, 17], // Propan-1-ol + SOCl2 -> E -> butanenitrile -> NaOH(aq)
+
+  // --- Ch 17 fixes (removed Ch 18 ketone forward leaks) ---
+  'pc-s25_12-q31': [18], // Butan-2-one + alkaline I2(aq) (Ch 18 carbonyl iodoform)
+  'pc-s24_12-q27': [17, 18], // Alcohol oxidised to methyl ketone giving iodoform ppt
+
+  // --- Ch 18 fixes (separated multi-chapter AS organic schemes into Modules) ---
+  'pc-m21_12-q24': [17], // 2° alcohol oxidation to ketone with acidified K2Cr2O7 (Ch 17)
+  'pc-s21_13-q28': [17, 18], // Comparing ketone/alcohol/nitrile conversion to 2-methylbutanoic acid
+  'pc-w25_22-q4d': [17, 18], // Esterification condensation (Ch 17) + IR absorption (Ch 18)
+  'pc-m23_22-q4d': [16, 18], // 2-bromobutane scheme (Ch 16) + IR & Br M+2 MS (Ch 18)
+  'pc-s23_22-q5d': [17, 18], // Ester condensation (Ch 17) + IR differences (Ch 18)
+  'pc-w23_22-q3c': [15, 17, 18], // Propene hydration + oxidation/esterification + IR
+  'pc-w23_22-q3d': [17, 18], // H3PO4 + CH3OH esterification (Ch 17) + M+1 MS (Ch 18)
+  'pc-w21_22-q3d': [15, 18], // Alkene + cold dilute KMnO4 (Ch 15) + 2,4-DNPH test (Ch 18)
+
+  // --- A2 Ch 19–30 fixes (removed solvent/P5/forward leaks & cross-chapter synthesis) ---
+  'pc-s25_52-q2b': [19, 23], // P5 pure calorimetry q = mcΔT (not Ch 19 Lattice Energy)
+  'pc-s23_41-q1b': [19], // Cu(NO3)2 thermal decomposition analogous to Group 2 nitrates
+  'pc-s24_52-q2d': [21, 24], // P5 FeSCN2+ equilibrium constant K1 (Ch 21 + Ch 24)
+  'pc-s25_41-q3c': [21], // Kpc calculation with benzene solely as solvent (pure Ch 21)
+  'pc-s26_42-q4c': [21], // Comparing Kpc of ethanedioic vs butanedioic acid (pure Ch 21)
+  'pc-s21_41-q3d': [22, 24], // S2O8^2- + tartrate homogeneous catalysis by Fe3+ (Ch 22 + 24)
+  'pc-m25_42-q6b': [24, 29], // Tartaric acid condensation + bidentate ligand (Ch 24 + 29)
+  'pc-s25_42-q6d': [25, 26, 27], // 2-nitrophenol Sn/HCl reduction (Ch 27) + add-elim (Ch 26)
+  'pc-w25_42-q9f': [25, 27, 29], // 4-nitrobenzoic acid + Sn/HCl (Ch 27) + step ordering (Ch 29)
+  'pc-w24_41-q6e': [25, 26], // Benzene-1,2-dioic acid dehydration to cyclic anhydride
+  'pc-s23_52-q1a': [21, 26], // P5 methyl benzoate density/burette practical prep
+  'pc-s26_42-q8c': [25, 26], // Alkaline hydrolysis of aromatic phenol-ester K at pH 10
+
+  // --- 2018-2020 syllabus-audited overrides (zero forward-dependency leaks) ---
+  'pc-s20_12-q17': [11], // Mg -> Ba trends (Group 2 hydroxides/sulfates solubility)
+  'pc-s20_12-q23': [17], // Ester X alkaline hydrolysis product formula (Ch 17)
+  'pc-s20_12-q27': [14, 17], // Isomeric esters C4H8O2 count (Ch 14 + Ch 17)
+  'pc-s19_22-q5c': [14, 17], // Esters X, Y, Z same molecular formula isomerism (Ch 14 + 17)
+  'pc-w18_12-q1': [6], // Standard enthalpy definitions (Ch 6)
+  'pc-w20_12-q4': [4, 14], // Organic compound A tetrahedral carbon geometry (Ch 4 + 14)
+  'pc-w20_22-q2d': [10], // Period 3 P4O10 vs MgO melting points (Ch 10)
+  'pc-s19_12-q29': [4, 17], // Ester R naming + boiling point vs butanoic acid (Ch 4 + 17)
+  'pc-s19_22-q2a': [12], // Group 17 volatility trend down group (Ch 12)
+  'pc-s18_12-q12': [10], // Period 3 oxides reaction with cold dilute NaOH (Ch 10)
+  'pc-s18_12-q10': [8], // Reversible reaction yield shift with T and P (Ch 8)
+  'pc-w19_12-q17': [12], // Solid NaI + conc H2SO4 lowest S oxidation number (Ch 12)
+  'pc-s19_22-q3b': [12], // Cl2(g) + cold water disproportionation (Ch 12)
+  'pc-w18_12-q17': [12], // Cl2 + hot/cold NaOH chlorate(I)/(V) (Ch 12)
+  'pc-s18_22-q1a': [10], // Period 3 Na and Mg reactions with cold water (Ch 10)
+  'pc-s20_12-q30': [14, 15], // Buta-1,3-diene + 2 HBr isomers (Ch 14 + 15)
+  'pc-s18_12-q24': [14, 16], // Optical isomer C5H11Cl reactions (Ch 14 + 16)
+  'pc-w18_12-q24': [14, 15], // Alkene Q addition polymerisation & isomerism (Ch 14 + 15)
+  'pc-s18_22-q4b': [14, 18], // Structural carbonyl isomers of butanone (Ch 14 + 18)
+  'pc-w18_22-q4b': [17, 18], // Ethanal -> hydroxynitrile -> hydroxy acid sequence (Ch 17 + 18)
+  'pc-s20_12-q6': [3], // Minimum volume of air (21% O2) for butane combustion (Ch 3)
+  'pc-w20_12-q24': [15, 16, 17], // Ethanol -> ethene & ethanol -> bromoethane catalysts
+  'pc-s19_12-q25': [16], // Bromoethane elimination product (Ch 16)
+  'pc-s19_22-q1b': [8, 15], // Butane isomerisation dynamic equilibrium (Ch 8 + 15)
+  'pc-s19_22-q4c': [3, 15], // Ethene complete combustion gas volume stoichiometry (Ch 3 + 15)
+  'pc-s20_22-q5a': [15, 16, 17], // Multi-step reaction sequence from ethene (Ch 15 + 16 + 17)
+  'pc-w20_22-q4a': [17, 18], // Reactions of G with Tollens', Na, H2SO4 reflux (Ch 17 + 18)
+  'pc-w18_12-q29': [15, 16, 17], // Comparing alkene/nitrile/alcohol routes to propanoic acid
+  'pc-s19_12-q28': [16, 17, 18], // Carboxylic acid P from alcohol X, aldehyde Y, nitrile Z
+  'pc-s18_12-q26': [17, 18], // Secondary alcohol oxidised to 6-carbon ketone (Ch 17 + 18)
+  'pc-s20_42-q2c': [19], // Thermal decomposition of Group 2 iodate Mg(IO3)2 (Ch 19)
+  'pc-s20_42-q4d': [25, 26], // Phenolphthalein phenol + ester hydrolysis & bromination
+  'pc-s19_42-q8c': [25, 26, 27], // Phenol + Na, CH3COCl, Br2(aq), diazonium salt
+  'pc-w20_42-q6e': [27, 30], // Mass spectrum fragment ion m/e = 58 of amide (Ch 27 + 30)
+  'pc-s18_42-q7d': [21, 27], // Valine amino acid acting as buffer solution (Ch 21 + 27)
+  'pc-s20_42-q4f': [25, 27], // Methyl orange azo dye indicator + Sn/HCl synthesis (Ch 25 + 27)
+  'pc-w18_42-q3a': [24], // [Co(H2O)6]2+ ligand substitution & precipitation scheme (Ch 24)
+};
+
 export function normalizeChemistryOcr(raw: string): string {
   if (!raw) return '';
   let s = String(raw)
@@ -460,7 +640,10 @@ export function classifyQuestionByTextbook(
         isSubPart &&
         has(/\b(multi-step|two-step|three-step|synthetic route|reaction scheme|reagents and conditions for step)\b/i, full) &&
         !has(/\b(electrophilic substitution|nitration|mechanism|acidity of phenol|weak acid|bromine water|cumene|systematic name)\b/i, focus);
-      if (!pureCh29Synth) hits.add(25);
+      const benzeneOnlyAsKpcSolvent =
+        has(/\b(Kpc|partition coefficient|shaken with .*benzene)\b/i, focus) &&
+        !has(/\b(electrophilic substitution|nitration|Friedel-Crafts|phenol|delocalised)\b/i, focus);
+      if (!pureCh29Synth && !benzeneOnlyAsKpcSolvent) hits.add(25);
     }
 
     // --- CH 26: Carboxylic acids & their derivatives (A2) ---
@@ -478,7 +661,10 @@ export function classifyQuestionByTextbook(
         isSubPart &&
         has(/\b(condensation polymer|polyester|polyamide|repeat unit)\b/i, focus) &&
         !has(/\b(addition-elimination|relative ease of hydrolysis|SOCl2)\b/i, focus);
-      if (!pureCh28) hits.add(26);
+      const pureCh21Kpc =
+        has(/\b(Kpc|partition coefficient)\b/i, focus) &&
+        !has(/\b(addition-elimination|acyl chloride|SOCl2|relative acidit|oxid)\b/i, focus);
+      if (!pureCh28 && !pureCh21Kpc) hits.add(26);
     }
 
     // --- CH 27: Organic nitrogen compounds ---
@@ -548,6 +734,31 @@ export function classifyQuestionByTextbook(
  * - Any question spanning >=2 chapters within its syllabus tier routes to STUDY_MODULES.
  */
 export function enforceForwardDependencyIsolation(q: Question): Question {
+  const isASPaper = q.paperNumber === 1 || q.paperNumber === 2;
+  const isA2Paper = q.paperNumber === 4 || q.paperNumber === 5;
+
+  const curated = CURATED_CHAPTER_OVERRIDES[q.id];
+  if (curated && curated.length > 0) {
+    const cleanCurated = Array.from(
+      new Set(
+        curated.filter((c) => {
+          if (!Number.isInteger(c) || c < 1 || c > 30) return false;
+          if (isASPaper) return c <= 18;
+          if (isA2Paper) return c >= 19;
+          return true;
+        })
+      )
+    ).sort((a, b) => a - b);
+
+    if (cleanCurated.length > 0) {
+      return {
+        ...q,
+        chapters: cleanCurated,
+        moduleId: resolveModuleForChapters(cleanCurated),
+      };
+    }
+  }
+
   const validStored = Array.from(
     new Set(q.chapters.filter((c) => Number.isInteger(c) && c >= 1 && c <= 30))
   ).sort((a, b) => a - b);
@@ -562,9 +773,6 @@ export function enforceForwardDependencyIsolation(q: Question): Question {
     }
   }
   const detected = classifyQuestionByTextbook(q, { isSubPart, partOnlyText });
-
-  const isASPaper = q.paperNumber === 1 || q.paperNumber === 2;
-  const isA2Paper = q.paperNumber === 4 || q.paperNumber === 5;
 
   const base = (
     isASPaper

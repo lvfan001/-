@@ -5,11 +5,15 @@ import {
   Award,
   CheckCircle2,
   Clock,
+  Download,
+  Eye,
+  FileText,
   Flag,
   Languages,
   Loader2,
   RotateCcw,
   Sparkles,
+  X,
   XCircle,
 } from 'lucide-react';
 import type {
@@ -44,10 +48,20 @@ interface AnswerState {
     feedbackZh: string;
     matchedPoints: string[];
     missedPoints: string[];
+    providerId?: string;
+    providerLabel?: string;
+    model?: string;
   };
   submittedInPractice?: boolean;
   isCorrect?: boolean;
   earnedMarks?: number;
+}
+
+interface GradingProviderOption {
+  id: 'deepseek' | 'openai-compatible' | 'gemini';
+  label: string;
+  model: string;
+  configured: boolean;
 }
 
 export function QuizWorkspace({
@@ -66,12 +80,54 @@ export function QuizWorkspace({
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [mockReport, setMockReport] = useState<MockExamResult | null>(null);
   const [gradingAi, setGradingAi] = useState(false);
+  const [aiGradeError, setAiGradeError] = useState<string | null>(null);
+  const [gradingProviders, setGradingProviders] = useState<GradingProviderOption[]>([]);
+  const [selectedProvider, setSelectedProvider] = useState<string>('auto');
   const [confirmRollback, setConfirmRollback] = useState(false);
   const [rolledBackNotice, setRolledBackNotice] = useState(false);
+  const [showExtractedText, setShowExtractedText] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<{ title: string; fileName: string } | null>(null);
 
   const questions = session.questions;
   const currentQ: Question | undefined = questions[currentIndex];
   const currentAns: AnswerState = currentQ ? answers[currentQ.id] ?? {} : {};
+
+  function getDifficultyBadge(diff: Question['difficulty']): { label: string; cls: string } {
+    if (diff === 'Core') {
+      return {
+        label: '基础前置',
+        cls: 'border-emerald-500/35 bg-emerald-500/12 text-emerald-300',
+      };
+    }
+    if (diff === 'Challenging') {
+      return {
+        label: '拔高后置',
+        cls: 'border-[#E0A458]/40 bg-[#E0A458]/14 text-[#E0A458]',
+      };
+    }
+    return {
+      label: '标准真题',
+      cls: 'border-white/15 bg-white/[0.04] text-[#F8F7F4]/70',
+    };
+  }
+
+  useEffect(() => {
+    let active = true;
+    fetch('/api/questions/grading-providers')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!active || !data) return;
+        const list = (data.providers ?? []) as GradingProviderOption[];
+        setGradingProviders(list.filter((p) => p.configured));
+        if (data.defaultProvider) {
+          setSelectedProvider(data.defaultProvider);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (mockReport) return;
@@ -201,6 +257,7 @@ export function QuizWorkspace({
     if (!currentQ || !currentAns.writtenText?.trim()) return;
     const targetQ = currentQ;
     setGradingAi(true);
+    setAiGradeError(null);
     try {
       const resp = await fetch('/api/questions/grade-structured', {
         method: 'POST',
@@ -208,18 +265,25 @@ export function QuizWorkspace({
         body: JSON.stringify({
           promptEn: targetQ.promptEn,
           markSchemePoints: targetQ.markSchemePoints ?? [],
+          modelAnswer: targetQ.modelAnswer,
+          explanationEn: targetQ.explanationEn,
           maxMarks: targetQ.marks,
           studentAnswer: currentAns.writtenText,
+          preferredProvider: selectedProvider,
         }),
       });
       const data = await resp.json();
-      if (resp.ok) {
-        updateAnswer(targetQ.id, {
-          aiGrade: data,
-          msRevealed: true,
-          ...(typeof data.awardedMarks === 'number' ? { selfScore: data.awardedMarks } : {}),
-        });
+      if (!resp.ok) {
+        setAiGradeError(data.error || 'AI 阅卷请求失败，请检查服务端模型配置或对照 MS 自评。');
+        return;
       }
+      updateAnswer(targetQ.id, {
+        aiGrade: data,
+        msRevealed: true,
+        ...(typeof data.awardedMarks === 'number' ? { selfScore: data.awardedMarks } : {}),
+      });
+    } catch (err) {
+      setAiGradeError(`AI 阅卷网络异常：${err instanceof Error ? err.message : '未知错误'}`);
     } finally {
       setGradingAi(false);
     }
@@ -387,6 +451,53 @@ export function QuizWorkspace({
           </div>
         </div>
 
+        {session.realPaperFiles && session.realPaperFiles.length > 0 && (
+          <div className="rounded-xl border border-emerald-500/25 bg-[#18181A] p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="font-mono text-[11px] uppercase tracking-[0.16em] text-emerald-300">
+                  OFFICIAL REAL PAPER FILES
+                </div>
+                <div className="mt-1 text-sm font-semibold text-[#F8F7F4]">
+                  本场实测套卷官方原卷（QP）与评分标准（MS）PDF
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {session.realPaperFiles.map((ref) => (
+                  <React.Fragment key={ref.paperCode}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPdfPreview({
+                          title: `${ref.paperCode} Question Paper`,
+                          fileName: ref.qpFileName,
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#141416] px-3 py-1.5 font-mono text-xs text-[#F8F7F4]/85 hover:border-[#E0A458] hover:text-[#E0A458]"
+                    >
+                      <Eye className="h-3.5 w-3.5" />
+                      {ref.paperCode} QP
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPdfPreview({
+                          title: `${ref.paperCode} Mark Scheme`,
+                          fileName: ref.msFileName,
+                        })
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 py-1.5 font-mono text-xs text-emerald-300 hover:bg-emerald-500/20"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                      {ref.paperCode} MS
+                    </button>
+                  </React.Fragment>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-4">
           <h2 className="text-base font-semibold text-[#F8F7F4]">
             逐题解析与评分标准复盘（错题已自动同步至错题频率统计）
@@ -398,7 +509,8 @@ export function QuizWorkspace({
               <div key={q.id} className="rounded-xl border border-white/10 bg-[#18181A] p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                   <span className="font-mono font-semibold text-[#F8F7F4]">
-                    第 {idx + 1} 题 · {q.paperCode} ·{' '}
+                    第 {idx + 1} 题 · {q.paperCode} Q{q.questionNumber}
+                    {q.subPart ?? ''} · {q.marks} 分 ·{' '}
                     {q.chapters.map((c) => getChapterById(c)?.code ?? `Ch ${c}`).join(' + ')}
                   </span>
                   <span
@@ -497,11 +609,60 @@ export function QuizWorkspace({
             );
           })}
         </div>
+
+        {pdfPreview && (
+          <div
+            className="fixed inset-0 z-50 flex flex-col bg-black/90 p-3 backdrop-blur-xs sm:p-6"
+            onClick={() => setPdfPreview(null)}
+          >
+            <div
+              className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-white/15 bg-[#18181A]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                <div className="truncate font-mono text-xs font-semibold text-[#F8F7F4]">
+                  {pdfPreview.title} · {pdfPreview.fileName}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={`/api/papers/download-file?file=${encodeURIComponent(pdfPreview.fileName)}`}
+                    download={pdfPreview.fileName}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#141416] px-3 py-1.5 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458] hover:text-[#E0A458]"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    下载 PDF
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setPdfPreview(null)}
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#E0A458] px-3 py-1.5 text-xs font-semibold text-[#111113]"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    关闭
+                  </button>
+                </div>
+              </div>
+              <iframe
+                src={`/api/papers/download-file?file=${encodeURIComponent(pdfPreview.fileName)}&inline=1`}
+                title={pdfPreview.title}
+                className="h-full w-full bg-white"
+              />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
   const modObj = currentQ.moduleId ? getModuleById(currentQ.moduleId) : undefined;
+  const diffBadge = getDifficultyBadge(currentQ.difficulty);
+  const mcqEntries = questions
+    .map((q, idx) => ({ q, idx }))
+    .filter((entry) => entry.q.type === 'mcq');
+  const structuredEntries = questions
+    .map((q, idx) => ({ q, idx }))
+    .filter((entry) => entry.q.type === 'structured');
+  const hasBothSections = mcqEntries.length > 0 && structuredEntries.length > 0;
 
   return (
     <div className="space-y-6">
@@ -547,6 +708,27 @@ export function QuizWorkspace({
                 </button>
               </div>
             ))}
+
+          {session.realPaperFiles && session.realPaperFiles.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {session.realPaperFiles.map((ref) => (
+                <button
+                  key={ref.paperCode}
+                  type="button"
+                  onClick={() =>
+                    setPdfPreview({
+                      title: `${ref.paperCode} 官方原卷 QP`,
+                      fileName: ref.qpFileName,
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-2.5 py-1.5 font-mono text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 whitespace-nowrap shrink-0"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  原卷 {ref.paperCode}
+                </button>
+              ))}
+            </div>
+          )}
 
           <button
             onClick={() => setShowChinese((v) => !v)}
@@ -606,6 +788,11 @@ export function QuizWorkspace({
               <span className="font-mono text-[#E0A458]">
                 {currentQ.chapters.map((id) => getChapterById(id)?.code ?? `Ch ${id}`).join(' + ')}
               </span>
+              <span
+                className={`rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium ${diffBadge.cls}`}
+              >
+                {diffBadge.label}
+              </span>
               {modObj && (
                 <>
                   <span aria-hidden="true">·</span>
@@ -629,9 +816,37 @@ export function QuizWorkspace({
             </button>
           </div>
 
+          {currentQ.type === 'structured' && (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[#E0A458]/30 bg-[#E0A458]/[0.07] px-3.5 py-2.5">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="rounded bg-[#E0A458] px-2 py-0.5 font-mono text-[11px] font-bold text-[#111113]">
+                  简答小问
+                </span>
+                <span className="font-mono font-semibold text-[#F8F7F4]">
+                  {currentQ.paperCode} · Q{currentQ.questionNumber}
+                  {currentQ.subPart ?? ''}
+                </span>
+                <span className="font-mono text-[#E0A458] tabular-nums">
+                  [{currentQ.marks} mark{currentQ.marks > 1 ? 's' : ''}]
+                </span>
+              </div>
+              {currentQ.clippedImageUrls && currentQ.clippedImageUrls.length > 0 && currentQ.promptEn && (
+                <button
+                  type="button"
+                  onClick={() => setShowExtractedText((v) => !v)}
+                  className="inline-flex items-center gap-1 font-mono text-[11px] text-[#F8F7F4]/70 hover:text-[#E0A458]"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  {showExtractedText ? '隐藏文字版题干' : '查看文字版题干'}
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="mt-4 space-y-3">
-            {!(currentQ.clippedImageUrls && currentQ.clippedImageUrls.length > 0) && (
-              <p className="whitespace-pre-line text-base leading-relaxed text-[#F8F7F4]">
+            {(!(currentQ.clippedImageUrls && currentQ.clippedImageUrls.length > 0) ||
+              (currentQ.type === 'structured' && showExtractedText)) && (
+              <p className="whitespace-pre-line rounded-lg border border-white/10 bg-[#141416] px-4 py-3 text-sm leading-relaxed text-[#F8F7F4]/90">
                 <ChemText text={currentQ.promptEn} />
               </p>
             )}
@@ -779,6 +994,21 @@ export function QuizWorkspace({
 
               {session.mode === 'practice' && (
                 <div className="flex flex-wrap items-center gap-3">
+                  {gradingProviders.length > 1 && (
+                    <select
+                      value={selectedProvider}
+                      onChange={(e) => setSelectedProvider(e.target.value)}
+                      className="rounded-lg border border-white/15 bg-[#111113] px-3 py-2 text-xs font-medium text-[#F8F7F4]/85 focus:border-[#E0A458] focus:outline-none"
+                      aria-label="选择批改 AI 模型"
+                    >
+                      {gradingProviders.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label} ({p.model})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
                   <button
                     onClick={handleAiGradeStructured}
                     disabled={!currentAns.writtenText?.trim() || gradingAi}
@@ -789,7 +1019,9 @@ export function QuizWorkspace({
                     ) : (
                       <Sparkles className="h-3.5 w-3.5 text-[#E0A458]" />
                     )}
-                    AI 按评分标准批改
+                    {gradingProviders.length === 1
+                      ? `AI 按评分标准批改 (${gradingProviders[0].label})`
+                      : 'AI 按评分标准批改'}
                   </button>
 
                   {!currentAns.msRevealed && !currentAns.submittedInPractice && (
@@ -803,12 +1035,48 @@ export function QuizWorkspace({
                 </div>
               )}
 
+              {aiGradeError && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-300">
+                  {aiGradeError}
+                </div>
+              )}
+
               {currentAns.aiGrade && (
-                <div className="rounded-xl border border-[#E0A458]/30 bg-[#E0A458]/10 p-4 text-xs text-[#F8F7F4]/85">
-                  <div className="font-mono font-semibold text-[#E0A458]">
-                    AI 建议得分：{currentAns.aiGrade.awardedMarks} / {currentQ.marks} 分
+                <div className="space-y-2.5 rounded-xl border border-[#E0A458]/30 bg-[#E0A458]/10 p-4 text-xs text-[#F8F7F4]/85">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-mono font-semibold text-[#E0A458]">
+                      AI 建议得分：{currentAns.aiGrade.awardedMarks} / {currentQ.marks} 分
+                    </span>
+                    {currentAns.aiGrade.providerLabel && (
+                      <span className="rounded border border-[#E0A458]/30 bg-[#111113]/70 px-2 py-0.5 font-mono text-[11px] text-[#F8F7F4]/75">
+                        {currentAns.aiGrade.providerLabel}
+                        {currentAns.aiGrade.model && currentAns.aiGrade.model !== 'none'
+                          ? ` · ${currentAns.aiGrade.model}`
+                          : ''}
+                      </span>
+                    )}
                   </div>
-                  <p className="mt-1 leading-relaxed">{currentAns.aiGrade.feedbackZh}</p>
+                  <p className="leading-relaxed">{currentAns.aiGrade.feedbackZh}</p>
+                  {currentAns.aiGrade.matchedPoints?.length > 0 && (
+                    <div className="space-y-1 border-t border-[#E0A458]/20 pt-2">
+                      <div className="font-semibold text-emerald-300">已命中得分点：</div>
+                      <ul className="list-disc space-y-0.5 pl-4 text-[#F8F7F4]/80">
+                        {currentAns.aiGrade.matchedPoints.map((pt, i) => (
+                          <li key={i}>{pt}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {currentAns.aiGrade.missedPoints?.length > 0 && (
+                    <div className="space-y-1 border-t border-[#E0A458]/20 pt-2">
+                      <div className="font-semibold text-amber-300">未命中 / 遗漏要点：</div>
+                      <ul className="list-disc space-y-0.5 pl-4 text-[#F8F7F4]/75">
+                        {currentAns.aiGrade.missedPoints.map((pt, i) => (
+                          <li key={i}>{pt}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1121,52 +1389,199 @@ export function QuizWorkspace({
           <div className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-[#F8F7F4]/75">
             答题进度导航
           </div>
-          <div className="mt-3 grid grid-cols-5 gap-2">
-            {questions.map((q, idx) => {
-              const ans = answers[q.id];
-              const isCurrent = idx === currentIndex;
-              const isFlagged = flagged[q.id];
-              const hasAnswer = Boolean(
-                ans?.selectedOption ||
-                  ans?.writtenText?.trim() ||
-                  ans?.msRevealed ||
-                  ans?.submittedInPractice
-              );
 
-              let cellStyle = 'border-white/12 bg-[#141416] text-[#F8F7F4]/75';
-              if (session.mode === 'practice' && ans?.submittedInPractice) {
-                cellStyle = ans.isCorrect
-                  ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
-                  : 'border-red-500/40 bg-red-500/15 text-red-300';
-              } else if (hasAnswer) {
-                cellStyle = 'border-[#E0A458]/40 bg-[#E0A458]/15 text-[#E0A458]';
-              }
-              if (isCurrent) {
-                cellStyle += ' ring-2 ring-[#E0A458] ring-offset-2 ring-offset-[#18181A]';
-              }
+          {hasBothSections ? (
+            <div className="mt-3 space-y-4">
+              <div>
+                <div className="mb-2 flex items-center justify-between font-mono text-[11px] text-[#F8F7F4]/55">
+                  <span>SECTION A · 选择题</span>
+                  <span>
+                    {mcqEntries.length} 题 · {mcqEntries.reduce((s, e) => s + e.q.marks, 0)}m
+                  </span>
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                  {mcqEntries.map(({ q, idx }) => {
+                    const ans = answers[q.id];
+                    const isCurrent = idx === currentIndex;
+                    const isFlagged = flagged[q.id];
+                    const hasAnswer = Boolean(ans?.selectedOption || ans?.submittedInPractice);
 
-              return (
-                <button
-                  key={q.id}
-                  onClick={() => setCurrentIndex(idx)}
-                  className={`relative flex h-9 items-center justify-center rounded-lg border font-mono text-xs font-semibold tabular-nums transition-colors ${cellStyle}`}
-                >
-                  {idx + 1}
-                  {isFlagged && (
-                    <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#E0A458]" />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                    let cellStyle = 'border-white/12 bg-[#141416] text-[#F8F7F4]/75';
+                    if (session.mode === 'practice' && ans?.submittedInPractice) {
+                      cellStyle = ans.isCorrect
+                        ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                        : 'border-red-500/40 bg-red-500/15 text-red-300';
+                    } else if (hasAnswer) {
+                      cellStyle = 'border-[#E0A458]/40 bg-[#E0A458]/15 text-[#E0A458]';
+                    }
+                    if (isCurrent) {
+                      cellStyle += ' ring-2 ring-[#E0A458] ring-offset-2 ring-offset-[#18181A]';
+                    }
+
+                    return (
+                      <button
+                        key={q.id}
+                        onClick={() => setCurrentIndex(idx)}
+                        title={`${q.paperCode} Q${q.questionNumber}`}
+                        className={`relative flex h-9 items-center justify-center rounded-lg border font-mono text-xs font-semibold tabular-nums transition-colors ${cellStyle}`}
+                      >
+                        {idx + 1}
+                        {isFlagged && (
+                          <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#E0A458]" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="border-t border-white/[0.06] pt-3">
+                <div className="mb-2 flex items-center justify-between font-mono text-[11px] text-[#E0A458]/80">
+                  <span>SECTION B · 简答小问</span>
+                  <span>
+                    {structuredEntries.length} 问 ·{' '}
+                    {structuredEntries.reduce((s, e) => s + e.q.marks, 0)}m
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {structuredEntries.map(({ q, idx }) => {
+                    const ans = answers[q.id];
+                    const isCurrent = idx === currentIndex;
+                    const isFlagged = flagged[q.id];
+                    const hasAnswer = Boolean(
+                      ans?.writtenText?.trim() || ans?.msRevealed || ans?.submittedInPractice
+                    );
+
+                    let cellStyle = 'border-white/12 bg-[#141416] text-[#F8F7F4]/75';
+                    if (session.mode === 'practice' && ans?.submittedInPractice) {
+                      cellStyle = ans.isCorrect
+                        ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                        : 'border-red-500/40 bg-red-500/15 text-red-300';
+                    } else if (hasAnswer) {
+                      cellStyle = 'border-[#E0A458]/40 bg-[#E0A458]/15 text-[#E0A458]';
+                    }
+                    if (isCurrent) {
+                      cellStyle += ' ring-2 ring-[#E0A458] ring-offset-2 ring-offset-[#18181A]';
+                    }
+
+                    return (
+                      <button
+                        key={q.id}
+                        onClick={() => setCurrentIndex(idx)}
+                        title={`${q.paperCode} Q${q.questionNumber}${q.subPart ?? ''} (${q.marks}m)`}
+                        className={`relative flex h-10 flex-col items-center justify-center rounded-lg border font-mono text-xs font-semibold tabular-nums leading-tight transition-colors ${cellStyle}`}
+                      >
+                        <span>{idx + 1}</span>
+                        <span className="text-[9px] opacity-70">{q.marks}m</span>
+                        {isFlagged && (
+                          <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#E0A458]" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 grid grid-cols-5 gap-2">
+              {questions.map((q, idx) => {
+                const ans = answers[q.id];
+                const isCurrent = idx === currentIndex;
+                const isFlagged = flagged[q.id];
+                const hasAnswer = Boolean(
+                  ans?.selectedOption ||
+                    ans?.writtenText?.trim() ||
+                    ans?.msRevealed ||
+                    ans?.submittedInPractice
+                );
+
+                let cellStyle = 'border-white/12 bg-[#141416] text-[#F8F7F4]/75';
+                if (session.mode === 'practice' && ans?.submittedInPractice) {
+                  cellStyle = ans.isCorrect
+                    ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                    : 'border-red-500/40 bg-red-500/15 text-red-300';
+                } else if (hasAnswer) {
+                  cellStyle = 'border-[#E0A458]/40 bg-[#E0A458]/15 text-[#E0A458]';
+                }
+                if (isCurrent) {
+                  cellStyle += ' ring-2 ring-[#E0A458] ring-offset-2 ring-offset-[#18181A]';
+                }
+
+                return (
+                  <button
+                    key={q.id}
+                    onClick={() => setCurrentIndex(idx)}
+                    title={`${q.paperCode} Q${q.questionNumber}${q.subPart ?? ''} (${q.marks}m)`}
+                    className={`relative flex flex-col items-center justify-center rounded-lg border font-mono text-xs font-semibold tabular-nums leading-tight transition-colors ${
+                      q.type === 'structured' ? 'h-10' : 'h-9'
+                    } ${cellStyle}`}
+                  >
+                    <span>{idx + 1}</span>
+                    {q.type === 'structured' && (
+                      <span className="text-[9px] opacity-70">{q.marks}m</span>
+                    )}
+                    {isFlagged && (
+                      <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#E0A458]" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div className="mt-4 space-y-1.5 border-t border-white/[0.06] pt-3 text-xs text-[#F8F7F4]/55">
             <div className="font-mono tabular-nums">
               共 {questions.length} 题 · 总分 {questions.reduce((a, b) => a + b.marks, 0)} 分
             </div>
-            <div>涉及 2 个以上章节的题目已标注所属 Module</div>
+            {session.mode === 'practice' ? (
+              <div>已按「基础前置 → 标准真题 → 拔高后置」阶梯排序</div>
+            ) : (
+              <div>所有简答题均按独立小问呈现，支持点击放大审图</div>
+            )}
           </div>
         </aside>
       </div>
+
+      {pdfPreview && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col bg-black/90 p-3 backdrop-blur-xs sm:p-6"
+          onClick={() => setPdfPreview(null)}
+        >
+          <div
+            className="mx-auto flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-white/15 bg-[#18181A]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+              <div className="truncate font-mono text-xs font-semibold text-[#F8F7F4]">
+                {pdfPreview.title} · {pdfPreview.fileName}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href={`/api/papers/download-file?file=${encodeURIComponent(pdfPreview.fileName)}`}
+                  download={pdfPreview.fileName}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-[#141416] px-3 py-1.5 text-xs font-medium text-[#F8F7F4]/85 hover:border-[#E0A458] hover:text-[#E0A458]"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  下载 PDF
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPdfPreview(null)}
+                  className="inline-flex items-center gap-1 rounded-lg bg-[#E0A458] px-3 py-1.5 text-xs font-semibold text-[#111113]"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  关闭
+                </button>
+              </div>
+            </div>
+            <iframe
+              src={`/api/papers/download-file?file=${encodeURIComponent(pdfPreview.fileName)}&inline=1`}
+              title={pdfPreview.title}
+              className="h-full w-full bg-white"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

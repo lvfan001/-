@@ -22,6 +22,11 @@ import {
   scrapeAvailableSessions,
   scrapeSessionFiles,
 } from './server/paperScraper.ts';
+import {
+  getGradingProvidersStatus,
+  gradeStructuredWithAi,
+  type GradingProviderId,
+} from './server/aiGrader.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -937,13 +942,28 @@ app.post('/api/plan/generate', async (req, res) => {
   });
 });
 
-// 7. Structured Answer AI Mark-Scheme Grader (Paper 2 / Paper 4)
+// 7. Structured Answer AI Mark-Scheme Grader (DeepSeek / OpenAI-compatible / Gemini)
+app.get('/api/questions/grading-providers', (_req, res) => {
+  res.json(getGradingProvidersStatus());
+});
+
 app.post('/api/questions/grade-structured', async (req, res) => {
-  const { promptEn, markSchemePoints, maxMarks, studentAnswer } = req.body as {
+  const {
+    promptEn,
+    markSchemePoints,
+    modelAnswer,
+    explanationEn,
+    maxMarks,
+    studentAnswer,
+    preferredProvider,
+  } = req.body as {
     promptEn: string;
     markSchemePoints: string[];
+    modelAnswer?: string;
+    explanationEn?: string;
     maxMarks: number;
     studentAnswer: string;
+    preferredProvider?: GradingProviderId | 'auto';
   };
 
   if (!studentAnswer?.trim()) {
@@ -951,60 +971,17 @@ app.post('/api/questions/grade-structured', async (req, res) => {
     return;
   }
 
-  const ai = getGeminiClient();
-  if (!ai) {
-    res.json({
-      awardedMarks: 0,
-      feedbackZh: '当前未配置 GEMINI_API_KEY，请对照下方官方 Mark Scheme 要点自评勾选得分点。',
-      matchedPoints: [],
-      missedPoints: markSchemePoints ?? [],
-    });
-    return;
-  }
-
   try {
-    const resp = await ai.models.generateContent({
-      model: 'gemini-4-hydrogen',
-      contents:
-        `You are a strict CAIE A-Level Chemistry 9701 examiner.\n` +
-        `Question: ${promptEn}\n` +
-        `Maximum Marks: ${maxMarks}\n` +
-        `Official Mark Scheme Points:\n${(markSchemePoints ?? []).join('\n')}\n\n` +
-        `Student Answer:\n${studentAnswer}\n\n` +
-        `Award marks strictly based on the mark scheme points (0 to ${maxMarks}) and provide concise Chinese feedback explaining which points were earned and what phrasing/units were missed.`,
-      config: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            awardedMarks: { type: Type.INTEGER },
-            feedbackZh: { type: Type.STRING },
-            matchedPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
-            missedPoints: { type: Type.ARRAY, items: { type: Type.STRING } },
-          },
-          required: ['awardedMarks', 'feedbackZh', 'matchedPoints', 'missedPoints'],
-        },
-      },
+    const result = await gradeStructuredWithAi({
+      promptEn,
+      markSchemePoints: markSchemePoints ?? [],
+      modelAnswer,
+      explanationEn,
+      maxMarks: Math.max(1, Number(maxMarks) || 1),
+      studentAnswer,
+      preferredProvider,
     });
-
-    const parsed = parseJsonSafe<{
-      awardedMarks: number;
-      feedbackZh: string;
-      matchedPoints: string[];
-      missedPoints: string[];
-    }>(resp.text, {
-      awardedMarks: 0,
-      feedbackZh: '评分解析返回格式异常，请对照 Mark Scheme 自评。',
-      matchedPoints: [],
-      missedPoints: markSchemePoints ?? [],
-    });
-
-    res.json({
-      awardedMarks: Math.max(0, Math.min(maxMarks, parsed.awardedMarks)),
-      feedbackZh: parsed.feedbackZh,
-      matchedPoints: parsed.matchedPoints ?? [],
-      missedPoints: parsed.missedPoints ?? [],
-    });
+    res.json(result);
   } catch (err) {
     res.status(500).json({
       error: `AI 阅卷失败：${err instanceof Error ? err.message : '未知错误'}`,
